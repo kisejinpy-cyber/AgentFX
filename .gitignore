@@ -1,0 +1,61 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# Environment (Sensitive API keys, Private keys)
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.production
+*.env
+*.env.local
+
+# Cache, linting, and temporary files
+.cache/
+.eslintcache
+*.tsbuildinfo
+next-env.d.ts
+
+# Editor / System files
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+*.pem
+
+# Next.js Build and Output
+.next/
+out/
+build/
+dist/
+.vercel/
+.turbo/
+
+# Hardhat Build and Smart Contract Artifacts
+artifacts/
+cache/
+typechain/
+typechain-types/
+coverage/
+coverage.json
