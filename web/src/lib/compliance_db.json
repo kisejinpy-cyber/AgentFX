@@ -1,0 +1,16 @@
+[
+  {
+    "address": "0x7a250d5630b4cf539739df2c5dacb4c659f2488d",
+    "timestamp": "2026-06-03T23:12:45.000Z",
+    "category": "OFAC Sanctioned Entity",
+    "status": "DENIED",
+    "score": "SEVERE"
+  },
+  {
+    "address": "0x1533c3962f8b28ba27caad2e2054895221000000",
+    "timestamp": "2026-06-03T14:45:10.000Z",
+    "category": "Circle Sanctions Blocklist",
+    "status": "DENIED",
+    "score": "SEVERE"
+  }
+]
