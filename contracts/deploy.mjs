@@ -7,15 +7,20 @@ import dotenv from "dotenv";
 dotenv.config();
 
 async function main() {
-  const contractPath = path.resolve(process.cwd(), "contracts/AutoEscrow.sol");
-  const source = fs.readFileSync(contractPath, "utf8");
+  const hookPath = path.resolve(process.cwd(), "contracts/IACPHook.sol");
+  const escrowPath = path.resolve(process.cwd(), "contracts/AutoEscrowv3.sol");
+  const registryPath = path.resolve(process.cwd(), "contracts/AgentRegistry.sol");
+
+  const hookSource = fs.readFileSync(hookPath, "utf8");
+  const escrowSource = fs.readFileSync(escrowPath, "utf8");
+  const registrySource = fs.readFileSync(registryPath, "utf8");
 
   const input = {
     language: "Solidity",
     sources: {
-      "AutoEscrow.sol": {
-        content: source,
-      },
+      "IACPHook.sol": { content: hookSource },
+      "AutoEscrowv3.sol": { content: escrowSource },
+      "AgentRegistry.sol": { content: registrySource },
     },
     settings: {
       viaIR: true,
@@ -31,7 +36,7 @@ async function main() {
     },
   };
 
-  console.log("Compiling AutoEscrow v2...");
+  console.log("Compiling smart contracts...");
   const output = JSON.parse(solc.compile(JSON.stringify(input)));
 
   if (output.errors) {
@@ -43,19 +48,19 @@ async function main() {
     }
   }
 
-  const contract = output.contracts["AutoEscrow.sol"]["AutoEscrow"];
-  const abi = contract.abi;
-  const bytecode = contract.evm.bytecode.object;
+  const escrowContract = output.contracts["AutoEscrowv3.sol"]["AutoEscrowv3"];
+  const registryContract = output.contracts["AgentRegistry.sol"]["AgentRegistry"];
 
-  console.log(`ABI has ${abi.length} entries`);
-  console.log(`Bytecode length: ${bytecode.length / 2} bytes`);
+  // Save ABIs for frontend
+  const escrowAbiPath = path.resolve(process.cwd(), "../web/src/components/AutoEscrowABI.json");
+  fs.writeFileSync(escrowAbiPath, JSON.stringify(escrowContract.abi, null, 2));
+  console.log("AutoEscrow ABI saved to:", escrowAbiPath);
 
-  // Save ABI for frontend
-  const abiPath = path.resolve(process.cwd(), "../web/src/components/AutoEscrowABI.json");
-  fs.writeFileSync(abiPath, JSON.stringify(abi, null, 2));
-  console.log("ABI saved to:", abiPath);
+  const registryAbiPath = path.resolve(process.cwd(), "../web/src/components/AgentRegistryABI.json");
+  fs.writeFileSync(registryAbiPath, JSON.stringify(registryContract.abi, null, 2));
+  console.log("AgentRegistry ABI saved to:", registryAbiPath);
 
-  // Deploy
+  // Connect to Arc Testnet
   console.log("Connecting to Arc Testnet...");
   const provider = new ethers.JsonRpcProvider(process.env.ARC_TESTNET_RPC_URL || "https://rpc.testnet.arc.network");
   const wallet = new ethers.Wallet(process.env.PRIVATE_KEY, provider);
@@ -64,40 +69,91 @@ async function main() {
   const balance = await provider.getBalance(wallet.address);
   console.log("Balance:", ethers.formatEther(balance), "USDC (native)");
 
-  const factory = new ethers.ContractFactory(abi, bytecode, wallet);
-  
-  // Arc Testnet USDC address
-  const usdcAddress = "0x3600000000000000000000000000000000000000";
-  
-  const autoEscrow = await factory.deploy(usdcAddress);
-  console.log("Waiting for deployment confirmation...");
-  await autoEscrow.waitForDeployment();
-  
-  const deployedAddress = await autoEscrow.getAddress();
-  console.log("AutoEscrow v2 deployed to:", deployedAddress);
+  // 1. Deploy AgentRegistry
+  console.log("Deploying AgentRegistry...");
+  const registryFactory = new ethers.ContractFactory(registryContract.abi, registryContract.evm.bytecode.object, wallet);
+  const agentRegistry = await registryFactory.deploy();
+  await agentRegistry.waitForDeployment();
+  const registryAddress = await agentRegistry.getAddress();
+  console.log("AgentRegistry deployed to:", registryAddress);
 
-  // Save address for frontend (in lib/constants.ts format)
+  // 2. Deploy AutoEscrowv3
+  console.log("Deploying AutoEscrow v3...");
+  const escrowFactory = new ethers.ContractFactory(escrowContract.abi, escrowContract.evm.bytecode.object, wallet);
+  const usdcAddress = "0x3600000000000000000000000000000000000000";
+  const autoEscrow = await escrowFactory.deploy(usdcAddress);
+  await autoEscrow.waitForDeployment();
+  const escrowAddress = await autoEscrow.getAddress();
+  console.log("AutoEscrow v3 deployed to:", escrowAddress);
+
+  // 3. Link AgentRegistry in AutoEscrowv3
+  console.log("Setting AgentRegistry address in AutoEscrow...");
+  const linkTx = await autoEscrow.setAgentRegistry(registryAddress);
+  await linkTx.wait();
+  console.log("AgentRegistry linked successfully!");
+
+  // 4. Register Initial Agents
+  console.log("Registering default agents inside AgentRegistry...");
+  const agentsToRegister = [
+    {
+      address: "0x1087E71CD83101adF154d8215522EadA51Bf891E",
+      name: "Meridian Core Agent",
+      uri: "ipfs://QmMeridianCoreAgentMetadata",
+      capability: "Automated Milestone Settlement & Financial Audits",
+    },
+    {
+      address: "0xe6A13B821A58d28e7522EadA51Bf891E1087E71C",
+      name: "TrustyEval Agent",
+      uri: "ipfs://QmTrustyEvalAgentMetadata",
+      capability: "Web Development Deliverables Code Evaluation",
+    },
+    {
+      address: "0x9cE7a5b39a6E7D0816759bBe0b075Fa0B39Fc72d",
+      name: "FastTrack Validator",
+      uri: "ipfs://QmFastTrackValidatorMetadata",
+      capability: "Sub-Second Low-Latency Milestone Verification",
+    }
+  ];
+
+  for (const agentInfo of agentsToRegister) {
+    console.log(`Registering agent: ${agentInfo.name} (${agentInfo.address})`);
+    const regTx = await agentRegistry.registerAgent(
+      ethers.getAddress(agentInfo.address.toLowerCase()),
+      agentInfo.name,
+      agentInfo.uri,
+      agentInfo.capability
+    );
+    await regTx.wait();
+  }
+  console.log("Default agents registered successfully!");
+
+  // 5. Update constants.ts
   const constantsPath = path.resolve(process.cwd(), "../web/src/lib/constants.ts");
   let constantsContent = fs.readFileSync(constantsPath, "utf8");
+  
   constantsContent = constantsContent.replace(
     /export const AUTO_ESCROW_ADDRESS = '0x[a-fA-F0-9]+' as const;/,
-    `export const AUTO_ESCROW_ADDRESS = '${deployedAddress}' as const;`
+    `export const AUTO_ESCROW_ADDRESS = '${escrowAddress}' as const;`
   );
-  fs.writeFileSync(constantsPath, constantsContent);
-  console.log("Updated constants.ts with new address:", deployedAddress);
 
-  // Also update legacy contractAddress.js for backward compat
+  constantsContent = constantsContent.replace(
+    /export const AGENT_REGISTRY_ADDRESS = '0x[a-fA-F0-9]+' as const;/,
+    `export const AGENT_REGISTRY_ADDRESS = '${registryAddress}' as const;`
+  );
+
+  fs.writeFileSync(constantsPath, constantsContent);
+  console.log("Updated constants.ts with new contract addresses!");
+
+  // Legacy compatibility update
   const legacyPath = path.resolve(process.cwd(), "../web/src/components/contractAddress.js");
   if (fs.existsSync(legacyPath)) {
-    fs.writeFileSync(legacyPath, `export const AUTO_ESCROW_ADDRESS = "${deployedAddress}";`);
+    fs.writeFileSync(legacyPath, `export const AUTO_ESCROW_ADDRESS = "${escrowAddress}";`);
   }
 
   console.log("\n=== Deployment Summary ===");
-  console.log("Contract: AutoEscrow v2");
-  console.log("Address:", deployedAddress);
+  console.log("AutoEscrow v3 Address:", escrowAddress);
+  console.log("AgentRegistry Address:", registryAddress);
   console.log("Network: Arc Testnet (5042002)");
-  console.log("USDC:", usdcAddress);
-  console.log("Explorer: https://testnet.arcscan.app/address/" + deployedAddress);
 }
 
 main().catch((err) => {
