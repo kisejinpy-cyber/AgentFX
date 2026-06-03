@@ -1,8 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { Bot, Plus, Shield, Network, Zap, CheckCircle, ExternalLink, Loader2 } from 'lucide-react';
+import { Bot, Plus, Shield, Network, Zap, CheckCircle, ExternalLink, Loader2, Database } from 'lucide-react';
 import { truncateAddress } from '@/lib/constants';
+import { GatewayFunding } from '@/components/GatewayFunding';
 
 interface Agent {
   id: string;
@@ -29,10 +30,9 @@ export function AgentFleetPanel() {
   const handleProvision = async () => {
     setProvisioning(true);
     try {
-      const res = await fetch('/api/agent', {
+      const res = await fetch('/api/agent/provision', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'provision' })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
@@ -42,7 +42,7 @@ export function AgentFleetPanel() {
         {
           id: `ag-${prev.length + 1}`,
           name: 'AI Delivery Verifier (Prod)',
-          walletId: `w-prod-${Math.random().toString(36).substring(7)}`,
+          walletId: data.id || `w-prod-${Math.random().toString(36).substring(7)}`,
           address: data.address,
           policy: 'Auto-Release Verified Escrows',
           status: 'active',
@@ -114,6 +114,15 @@ export function AgentFleetPanel() {
             </div>
           </div>
         ))}
+      </div>
+
+      {/* Nanopayments Layer */}
+      <div className="border-t border-gray-850 p-5 bg-gray-900/10">
+        <h4 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4 flex items-center gap-1.5">
+          <Database className="w-3.5 h-3.5 text-cyan-400" />
+          Gateway Nanopayment Management
+        </h4>
+        <GatewayFunding />
       </div>
 
       {/* Footer Info */}
