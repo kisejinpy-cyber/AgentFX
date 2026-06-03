@@ -21,6 +21,7 @@ import {
   AUTO_ESCROW_ADDRESS,
   AUTO_ESCROW_ABI,
   USDC_DECIMALS,
+  EURC_ADDRESS,
   truncateAddress,
   explorerAddressUrl,
 } from '@/lib/constants';
@@ -47,6 +48,7 @@ interface EscrowData {
   createdAt: bigint;
   invoiceRef: string;
   milestoneCount: number;
+  settlementToken: string;
 }
 
 function StatusBadge({ state }: { state: number }) {
@@ -76,7 +78,7 @@ function DeadlineInfo({ deadline, state }: { deadline: bigint; state: number }) 
 }
 
 function EscrowRow({ escrow }: { escrow: EscrowData }) {
-  const { address } = useAccount();
+  const { address, connector } = useAccount();
   const { addToast, updateToast } = useToast();
   const { writeContractAsync } = useWriteContract();
   const [acting, setActing] = useState(false);
@@ -90,6 +92,9 @@ function EscrowRow({ escrow }: { escrow: EscrowData }) {
   const canDispute = isActive && (isBuyer || isSeller);
   const isExpired = isActive && Number(escrow.deadline) * 1000 < Date.now();
   const canClaimTimeout = isActive && isExpired && isBuyer;
+
+  const isEURC = escrow.settlementToken?.toLowerCase() === EURC_ADDRESS.toLowerCase();
+  const currencyLabel = isEURC ? 'EURC' : 'USDC';
 
   const formattedAmount = Number(formatUnits(escrow.totalAmount, USDC_DECIMALS)).toLocaleString('en-US', {
     minimumFractionDigits: 2, maximumFractionDigits: 2,
@@ -123,7 +128,7 @@ function EscrowRow({ escrow }: { escrow: EscrowData }) {
       updateToast(toastId, {
         type: 'success',
         title: action === 'releaseAll' ? 'Escrow Released' : 'Escrow Refunded',
-        message: `$${formattedAmount} USDC ${action === 'releaseAll' ? 'sent to seller' : 'returned to buyer'}`,
+        message: `${isEURC ? '€' : '$'}${formattedAmount} ${currencyLabel} ${action === 'releaseAll' ? 'sent to seller' : 'returned to buyer'}`,
         txHash,
       });
     } catch (err: unknown) {
@@ -136,6 +141,40 @@ function EscrowRow({ escrow }: { escrow: EscrowData }) {
       setActing(false);
     }
   }, [escrow, writeContractAsync, addToast, updateToast, formattedAmount]);
+
+  const handleDispute = useCallback(async () => {
+    const reason = prompt('Please enter the reason for the dispute:');
+    if (!reason) return;
+
+    setActing(true);
+    const toastId = addToast({ type: 'loading', title: 'Filing Dispute', message: `Filing dispute for escrow #${escrow.id}...` });
+
+    try {
+      const txHash = await writeContractAsync({
+        address: AUTO_ESCROW_ADDRESS,
+        abi: AUTO_ESCROW_ABI,
+        functionName: 'disputeJob',
+        args: [BigInt(escrow.id), reason],
+      });
+
+      const { createPublicClient, http } = await import('viem');
+      const { arcTestnet } = await import('@/components/Web3Provider');
+      const publicClient = createPublicClient({ chain: arcTestnet, transport: http() });
+      await publicClient.waitForTransactionReceipt({ hash: txHash });
+
+      updateToast(toastId, {
+        type: 'success',
+        title: 'Dispute Filed',
+        message: `Escrow #${escrow.id} has been moved to disputed state.`,
+        txHash,
+      });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      updateToast(toastId, { type: 'error', title: 'Action Failed', message });
+    } finally {
+      setActing(false);
+    }
+  }, [escrow, writeContractAsync, addToast, updateToast]);
 
   return (
     <tr className="hover:bg-gray-800/15 transition-colors duration-150 group">
@@ -173,7 +212,12 @@ function EscrowRow({ escrow }: { escrow: EscrowData }) {
       </td>
       <td className="px-4 py-3.5">
         <div className="flex flex-col gap-0.5">
-          <span className="font-mono text-sm text-gray-200">${formattedAmount}</span>
+          <div className="flex items-center gap-1.5">
+            <span className="font-mono text-sm text-gray-200">{isEURC ? '€' : '$'}{formattedAmount}</span>
+            <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded ${isEURC ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20'}`}>
+              {currencyLabel}
+            </span>
+          </div>
           {releasedPct > 0 && releasedPct < 100 && (
             <div className="flex items-center gap-1.5">
               <div className="w-12 h-1 bg-gray-800 rounded-full overflow-hidden">
@@ -220,21 +264,56 @@ function EscrowRow({ escrow }: { escrow: EscrowData }) {
                 {acting ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Timeout Refund'}
               </button>
             )}
+            {canDispute && (
+              <button onClick={handleDispute} disabled={acting}
+                className="text-[10px] bg-orange-900/20 hover:bg-orange-900/40 text-orange-400 px-2 py-1 rounded border border-orange-800/30 transition-all disabled:opacity-50">
+                {acting ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Dispute'}
+              </button>
+            )}
             {isActive && (
               <button onClick={async () => {
                 setActing(true);
                 const toastId = addToast({ type: 'loading', title: 'AI Verification', message: 'Agent analyzing off-chain delivery data...' });
                 try {
-                  const res = await fetch('/api/agent', {
+                  // Phase 1: Try endpoint without payment header
+                  let res = await fetch('/api/agent', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'verify', escrowId: escrow.id })
+                    body: JSON.stringify({ action: 'verify', escrowId: escrow.id, userAddress: address })
                   });
+
+                  // Phase 2: Intercept HTTP 402 Payment Required
+                  if (res.status === 402) {
+                    const cost = res.headers.get('X-402-Payment-Cost') || '0.00001';
+                    const recipient = res.headers.get('X-402-Payment-Recipient') || 'Agent node';
+                    
+                    // Show micro-billing toast
+                    addToast({
+                      type: 'loading',
+                      title: 'x402 Micropayment Required',
+                      message: `Paying ${cost} USDC to agent operator (${truncateAddress(recipient, 4)})...`
+                    });
+
+                    // Simulate signing off-chain EIP-3009 transfer authorization
+                    await new Promise(r => setTimeout(r, 1200));
+
+                    // Retry request with signed micropayment header proof
+                    res = await fetch('/api/agent', {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        'X-402-Payment-Authorization': 'Bearer mock-eip3009-sig-channel-proof'
+                      },
+                      body: JSON.stringify({ action: 'verify', escrowId: escrow.id, userAddress: address })
+                    });
+                  }
+
                   const data = await res.json();
-                  if (!res.ok) throw new Error(data.error);
+                  if (!res.ok) throw new Error(data.message || data.error);
+                  
                   updateToast(toastId, { type: 'success', title: 'Agent Released Escrow', message: `Auto-verified and released by AI Agent`, txHash: data.txHash });
                 } catch (e: any) {
-                  updateToast(toastId, { type: 'error', title: 'AI Verification Failed', message: e.message });
+                  updateToast(toastId, { type: 'error', title: 'AI Verification Failed', message: e.message || 'Nanopayment error' });
                 }
                 setActing(false);
               }} disabled={acting}
@@ -252,6 +331,7 @@ function EscrowRow({ escrow }: { escrow: EscrowData }) {
 }
 
 export function EscrowTable() {
+  const { connector } = useAccount();
   const [escrows, setEscrows] = useState<EscrowData[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -279,7 +359,7 @@ export function EscrowTable() {
         calls.push({
           address: AUTO_ESCROW_ADDRESS as `0x${string}`,
           abi: AUTO_ESCROW_ABI,
-          functionName: 'escrows' as const,
+          functionName: 'getJob' as const,
           args: [BigInt(i)] as const,
         });
       }
@@ -296,8 +376,8 @@ export function EscrowTable() {
         for (let idx = 0; idx < individualResults.length; idx++) {
           const res = individualResults[idx];
           if (res.status === 'success' && res.result) {
-            const [buyer, seller, agent, totalAmount, releasedAmount, deadline, state, createdAt, invoiceRef, milestoneCount] =
-              res.result as [string, string, string, bigint, bigint, bigint, number, bigint, string, bigint];
+            const [buyer, seller, agent, totalAmount, releasedAmount, deadline, state, createdAt, invoiceRef, milestoneCount, settlementToken] =
+              res.result as [string, string, string, bigint, bigint, bigint, number, bigint, string, bigint, string];
             if (buyer !== '0x0000000000000000000000000000000000000000') {
               results.push({
                 id: count - 1 - idx,
@@ -307,6 +387,7 @@ export function EscrowTable() {
                 createdAt,
                 invoiceRef,
                 milestoneCount: Number(milestoneCount),
+                settlementToken,
               });
             }
           }
@@ -327,6 +408,11 @@ export function EscrowTable() {
       <div className="px-5 py-4 border-b border-gray-800/40 flex justify-between items-center">
         <h3 className="text-sm font-semibold text-gray-200">On-Chain Escrows</h3>
         <div className="flex items-center gap-2">
+          {connector?.id === 'circle' && (
+            <span className="flex items-center gap-1 text-[10px] bg-emerald-500/10 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/20 font-medium">
+              Gasless
+            </span>
+          )}
           <button onClick={() => refetchNextId()} className="text-[10px] text-gray-500 hover:text-gray-300 transition-colors">
             Refresh
           </button>

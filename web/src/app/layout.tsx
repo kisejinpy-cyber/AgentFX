@@ -36,6 +36,8 @@ export const metadata: Metadata = {
   },
 };
 
+import { CircleAuthModal } from "@/components/CircleAuthModal";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -51,6 +53,7 @@ export default function RootLayout({
         <Web3Provider>
           <ToastProvider>
             {children}
+            <CircleAuthModal />
           </ToastProvider>
         </Web3Provider>
       </body>

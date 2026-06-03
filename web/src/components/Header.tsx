@@ -13,6 +13,7 @@ import {
   truncateAddress,
 } from '@/lib/constants';
 import { useReadContract } from 'wagmi';
+import { UnifiedBalanceWidget } from '@/components/UnifiedBalanceWidget';
 
 export function Header() {
   const { address, isConnected, chain } = useAccount();
@@ -78,6 +79,8 @@ export function Header() {
 
       {/* Right Side */}
       <div className="flex items-center gap-3">
+        {isConnected && <UnifiedBalanceWidget />}
+
         {/* Network Badge */}
         <div className="hidden sm:flex items-center bg-gray-900/60 backdrop-blur-md px-3 py-1.5 rounded-full border border-gray-800/60 text-xs gap-2">
           <span className={`w-1.5 h-1.5 rounded-full ${isWrongNetwork ? 'bg-red-400' : 'bg-emerald-400'} animate-pulse`} />
@@ -156,12 +159,16 @@ export function Header() {
           </div>
         ) : (
           <button
-            onClick={() => connect({ connector: injected() })}
+            onClick={() => {
+              if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('circle-open-auth'));
+              }
+            }}
             disabled={isConnecting}
-            className="flex items-center gap-2 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-medium text-sm px-5 py-2 rounded-xl transition-all duration-200 shadow-[var(--glow-cyan)] disabled:opacity-60"
+            className="flex items-center gap-2 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white font-semibold text-xs px-5 py-2.5 rounded-xl transition-all duration-200 shadow-[var(--glow-cyan)] disabled:opacity-60 cursor-pointer"
           >
             <Wallet className="w-4 h-4" />
-            {isConnecting ? 'Connecting...' : 'Connect Wallet'}
+            {isConnecting ? 'Connecting...' : 'Sign in with Google / Email'}
           </button>
         )}
       </div>

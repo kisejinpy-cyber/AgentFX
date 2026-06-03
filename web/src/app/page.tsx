@@ -9,6 +9,11 @@ import { ActivityLog } from '@/components/ActivityLog';
 import { PaymentsPanel } from '@/components/PaymentsPanel';
 import { TreasuryRouter } from '@/components/TreasuryRouter';
 import { AgentFleetPanel } from '@/components/AgentFleetPanel';
+import { AgentDirectory } from '@/components/AgentDirectory';
+import { CurrencyConverter } from '@/components/CurrencyConverter';
+import { NotificationSettings } from '@/components/NotificationSettings';
+import { DisputeBoard } from '@/components/DisputeBoard';
+import { ComplianceDashboard } from '@/components/ComplianceDashboard';
 import {
   ExternalLink,
   BookOpen,
@@ -18,19 +23,26 @@ import {
   Cpu,
   LayoutDashboard,
   Bot,
+  Bell,
+  Gavel,
+  ShieldCheck,
 } from 'lucide-react';
 import { AUTO_ESCROW_ADDRESS, explorerAddressUrl } from '@/lib/constants';
 
-type TabKey = 'escrow' | 'payments' | 'treasury' | 'agents';
+type TabKey = 'escrow' | 'payments' | 'treasury' | 'agents' | 'disputes' | 'alerts' | 'compliance';
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<TabKey>('escrow');
+  const [agentAddress, setAgentAddress] = useState('');
 
   const tabs = [
     { key: 'escrow' as const, label: 'Escrow', icon: Zap, desc: 'Agent-verified smart escrow' },
     { key: 'payments' as const, label: 'Payments', icon: Send, desc: 'Send, bridge & faucet' },
     { key: 'treasury' as const, label: 'Treasury', icon: Cpu, desc: 'Policy engine & routing' },
     { key: 'agents' as const, label: 'Agents', icon: Bot, desc: 'Programmable Wallets' },
+    { key: 'disputes' as const, label: 'Disputes', icon: Gavel, desc: 'Consensus Dispute Board' },
+    { key: 'alerts' as const, label: 'Alerts', icon: Bell, desc: 'Real-time webhook events' },
+    { key: 'compliance' as const, label: 'Compliance', icon: ShieldCheck, desc: 'AML / Screening logs' },
   ];
 
   return (
@@ -70,33 +82,45 @@ export default function Home() {
 
         {/* ─── Escrow Tab ─── */}
         {activeTab === 'escrow' && (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 animate-fade-in">
-            <div className="lg:col-span-4 space-y-6">
-              <EscrowForm />
-              {/* How It Works */}
-              <div className="bg-gray-900/30 border border-gray-800/30 rounded-2xl p-5 space-y-3">
-                <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">How It Works</h3>
-                <div className="space-y-2.5">
-                  {[
-                    { step: '1', text: 'Buyer locks USDC into agent-verified escrow' },
-                    { step: '2', text: 'AI agent monitors delivery via oracle/webhook' },
-                    { step: '3', text: 'Upon verification, agent releases funds to seller' },
-                    { step: '4', text: 'If disputed, agent or seller can initiate refund' },
-                  ].map(({ step, text }) => (
-                    <div key={step} className="flex gap-3 items-start">
-                      <div className="w-5 h-5 rounded-full bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center shrink-0 mt-0.5">
-                        <span className="text-[10px] text-cyan-400 font-bold">{step}</span>
+          <div className="space-y-8 animate-fade-in">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+              <div className="lg:col-span-4 space-y-6">
+                <EscrowForm agentAddress={agentAddress} setAgentAddress={setAgentAddress} />
+                {/* How It Works */}
+                <div className="bg-gray-900/30 border border-gray-800/30 rounded-2xl p-5 space-y-3">
+                  <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">How It Works</h3>
+                  <div className="space-y-2.5">
+                    {[
+                      { step: '1', text: 'Buyer locks USDC into agent-verified escrow' },
+                      { step: '2', text: 'AI agent monitors delivery via oracle/webhook' },
+                      { step: '3', text: 'Upon verification, agent releases funds to seller' },
+                      { step: '4', text: 'If disputed, agent or seller can initiate refund' },
+                    ].map(({ step, text }) => (
+                      <div key={step} className="flex gap-3 items-start">
+                        <div className="w-5 h-5 rounded-full bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center shrink-0 mt-0.5">
+                          <span className="text-[10px] text-cyan-400 font-bold">{step}</span>
+                        </div>
+                        <p className="text-xs text-gray-500 leading-relaxed">{text}</p>
                       </div>
-                      <p className="text-xs text-gray-500 leading-relaxed">{text}</p>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
+                <CurrencyConverter />
+              </div>
+              <div className="lg:col-span-8 space-y-6">
+                <StatsRow />
+                <EscrowTable />
+                <ActivityLog />
               </div>
             </div>
-            <div className="lg:col-span-8 space-y-6">
-              <StatsRow />
-              <EscrowTable />
-              <ActivityLog />
+            {/* Agent Directory */}
+            <div>
+              <AgentDirectory
+                onSelectAgent={(address) => {
+                  setAgentAddress(address);
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+              />
             </div>
           </div>
         )}
@@ -118,11 +142,11 @@ export default function Home() {
                 <div className="grid grid-cols-2 gap-3">
                   {[
                     { name: 'USDC', desc: 'Settlement rail', status: 'active' },
-                    { name: 'CCTP v2', desc: 'Cross-chain bridge', status: 'integrated' },
-                    { name: 'App Kit', desc: 'Unified Balance SDK', status: 'integrated' },
-                    { name: 'Wallets', desc: 'Embedded key mgmt', status: 'planned' },
-                    { name: 'Gateway', desc: 'Treasury routing', status: 'planned' },
-                    { name: 'Nanopayments', desc: 'Micro-transactions', status: 'planned' },
+                    { name: 'CCTP v2', desc: 'Cross-chain bridge', status: 'active' },
+                    { name: 'App Kit', desc: 'Unified Balance SDK', status: 'active' },
+                    { name: 'Wallets', desc: 'Embedded key mgmt', status: 'active' },
+                    { name: 'Gateway', desc: 'Treasury routing', status: 'active' },
+                    { name: 'Nanopayments', desc: 'Micro-transactions', status: 'active' },
                   ].map(({ name, desc, status }) => (
                     <div key={name} className="bg-gray-950/40 border border-gray-800/30 rounded-lg p-3">
                       <div className="flex items-center justify-between mb-1">
@@ -174,6 +198,27 @@ export default function Home() {
                 </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* ─── Disputes Tab ─── */}
+        {activeTab === 'disputes' && (
+          <div className="max-w-7xl mx-auto animate-fade-in">
+            <DisputeBoard />
+          </div>
+        )}
+
+        {/* ─── Alerts Tab ─── */}
+        {activeTab === 'alerts' && (
+          <div className="max-w-3xl mx-auto animate-fade-in">
+            <NotificationSettings />
+          </div>
+        )}
+
+        {/* ─── Compliance Tab ─── */}
+        {activeTab === 'compliance' && (
+          <div className="max-w-7xl mx-auto animate-fade-in">
+            <ComplianceDashboard />
           </div>
         )}
       </div>

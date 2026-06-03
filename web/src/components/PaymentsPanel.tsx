@@ -14,6 +14,7 @@ import {
   ArrowRight,
   AlertTriangle,
   Repeat,
+  Building,
 } from 'lucide-react';
 import {
   USDC_ADDRESS,
@@ -25,6 +26,8 @@ import {
   explorerTxUrl,
 } from '@/lib/constants';
 import { useToast } from '@/components/ui/Toast';
+import { BridgePanel } from '@/components/BridgePanel';
+import { BankLinking } from '@/components/BankLinking';
 
 // ─── USDC Transfer Tab ───
 function TransferTab() {
@@ -155,70 +158,7 @@ function TransferTab() {
 
 // ─── CCTP Bridge Tab ───
 function BridgeTab() {
-  return (
-    <div className="space-y-4">
-      <div className="bg-gray-950/50 border border-gray-800/40 rounded-xl p-4 space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="text-center flex-1">
-            <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">From</p>
-            <p className="text-sm font-medium text-gray-200">Ethereum Sepolia</p>
-          </div>
-          <div className="w-8 h-8 rounded-full bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center mx-3">
-            <ArrowRight className="w-4 h-4 text-cyan-400" />
-          </div>
-          <div className="text-center flex-1">
-            <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">To</p>
-            <p className="text-sm font-medium text-gray-200">Arc Testnet</p>
-          </div>
-        </div>
-      </div>
-
-      <div>
-        <label className="block text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1.5">Amount to Bridge</label>
-        <div className="relative">
-          <input type="text" inputMode="decimal" disabled
-            className="w-full bg-[var(--bg-input)] border border-gray-800/60 rounded-xl px-4 py-3 text-lg font-mono placeholder-gray-700 opacity-50"
-            placeholder="0.00" />
-          <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-cyan-500 bg-cyan-950/40 px-2 py-0.5 rounded">USDC</div>
-        </div>
-      </div>
-
-      <div className="bg-blue-950/20 border border-blue-800/30 rounded-xl p-3 space-y-2">
-        <p className="text-xs font-medium text-blue-400 flex items-center gap-1.5">
-          <ArrowLeftRight className="w-3.5 h-3.5" />
-          Circle CCTP v2
-        </p>
-        <p className="text-[11px] text-gray-400 leading-relaxed">
-          Cross-Chain Transfer Protocol enables native USDC bridging between chains. 
-          USDC is burned on the source chain and minted on the destination, ensuring 
-          no wrapped tokens or liquidity pool risk.
-        </p>
-        <div className="grid grid-cols-2 gap-2 mt-2">
-          <div className="bg-gray-950/50 rounded-lg p-2 text-center">
-            <p className="text-[10px] text-gray-500">Est. Time</p>
-            <p className="text-xs font-mono text-gray-300">~13 min</p>
-          </div>
-          <div className="bg-gray-950/50 rounded-lg p-2 text-center">
-            <p className="text-[10px] text-gray-500">Bridge Fee</p>
-            <p className="text-xs font-mono text-gray-300">$0.00</p>
-          </div>
-        </div>
-      </div>
-
-      <a
-        href="https://developers.circle.com/cctp"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="w-full font-semibold py-3 rounded-xl text-sm flex items-center justify-center gap-2 bg-gray-800/60 text-gray-300 hover:bg-gray-700/60 border border-gray-700/50 transition-all"
-      >
-        <ExternalLink className="w-4 h-4" />
-        Open CCTP Bridge
-      </a>
-      <p className="text-[10px] text-gray-600 text-center">
-        CCTP bridge requires multi-chain wallet connection. Use Circle's official bridge interface.
-      </p>
-    </div>
-  );
+  return <BridgePanel />;
 }
 
 // ─── Faucet Tab ───
@@ -275,14 +215,167 @@ function FaucetTab() {
   );
 }
 
+interface PayoutLog {
+  id: string;
+  bankAccountId: string;
+  bankName: string;
+  amount: number;
+  currency: string;
+  status: 'pending' | 'processing' | 'settled' | 'failed';
+  timestamp: string;
+  escrowId: string;
+}
+
+// ─── Off-Ramp Tab ───
+function OfframpTab() {
+  const { addToast } = useToast();
+  const [payouts, setPayouts] = useState<PayoutLog[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const fetchPayouts = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/payouts');
+      if (res.ok) {
+        const data = await res.json();
+        setPayouts(data.payouts || []);
+      }
+    } catch (err) {
+      console.error('Failed to fetch payouts:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchPayouts();
+  }, []);
+
+  const handleSimulateWebhook = async (payoutId: string, targetStatus: string) => {
+    try {
+      const res = await fetch('/api/webhooks/circle', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-circle-signature': 'sandbox-signature-proof',
+        },
+        body: JSON.stringify({
+          notificationType: 'payouts.updated',
+          notification: {
+            id: payoutId,
+            status: targetStatus.toUpperCase(),
+            amount: { amount: '100.00', currency: 'USD' }
+          }
+        })
+      });
+
+      if (res.ok) {
+        addToast({
+          type: 'success',
+          title: 'Webhook Simulated',
+          message: `Payout #${payoutId} updated to ${targetStatus} in sandbox database.`,
+        });
+        fetchPayouts();
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Onboarding Wizard and Bank Account List */}
+      <BankLinking onRefreshHistory={fetchPayouts} />
+
+      {/* Payout History Section */}
+      <div className="space-y-3 pt-5 border-t border-gray-800/40">
+        <div>
+          <h4 className="text-xs font-semibold text-gray-200">Payout History</h4>
+          <p className="text-[10px] text-gray-500 mt-0.5 font-sans">
+            Tracking automatic conversion of settled escrow tokens into USD bank transfers.
+          </p>
+        </div>
+
+        {loading ? (
+          <div className="text-xs text-gray-500 py-4 text-center">Loading payouts history...</div>
+        ) : payouts.length === 0 ? (
+          <div className="text-xs text-gray-650 py-6 text-center font-sans">No recent bank payouts.</div>
+        ) : (
+          <div className="space-y-2.5">
+            {payouts.map((payout) => (
+              <div
+                key={payout.id}
+                className="bg-gray-950/40 border border-gray-850/60 rounded-xl p-4 flex flex-col sm:flex-row justify-between sm:items-center gap-3 transition-colors hover:border-gray-800/60"
+              >
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-xs text-gray-200 font-bold">
+                      ${payout.amount.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                    </span>
+                    <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 font-sans">
+                      USD Fiat
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-[9px] text-gray-500 font-mono">
+                    <span>ID: {payout.id}</span>
+                    <span>•</span>
+                    <span>To: {payout.bankName}</span>
+                    <span>•</span>
+                    <span>Escrow #{payout.escrowId}</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between sm:justify-end gap-3.5">
+                  <div className="flex flex-col sm:items-end text-left sm:text-right">
+                    <span className={`px-2 py-0.5 rounded text-[9px] font-bold font-mono border ${
+                      payout.status === 'settled'
+                        ? 'bg-emerald-950/20 text-emerald-400 border-emerald-500/20'
+                        : payout.status === 'failed'
+                        ? 'bg-red-950/20 text-red-400 border-red-500/20'
+                        : 'bg-amber-950/20 text-amber-400 border-amber-500/20'
+                    }`}>
+                      {payout.status.toUpperCase()}
+                    </span>
+                    <span className="text-[8px] text-gray-650 mt-1 font-mono">
+                      {new Date(payout.timestamp).toLocaleString()}
+                    </span>
+                  </div>
+
+                  {(payout.status === 'pending' || payout.status === 'processing') && (
+                    <div className="flex gap-1.5 shrink-0">
+                      <button
+                        onClick={() => handleSimulateWebhook(payout.id, 'settled')}
+                        className="text-[9px] bg-emerald-600/10 hover:bg-emerald-600/25 border border-emerald-500/20 text-emerald-400 px-2 py-1 rounded transition-all font-bold uppercase active:scale-95"
+                      >
+                        Settle
+                      </button>
+                      <button
+                        onClick={() => handleSimulateWebhook(payout.id, 'failed')}
+                        className="text-[9px] bg-red-600/10 hover:bg-red-600/25 border border-red-500/20 text-red-400 px-2 py-1 rounded transition-all font-bold uppercase active:scale-95"
+                      >
+                        Fail
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Payments Component ───
 export function PaymentsPanel() {
-  const [activeTab, setActiveTab] = useState<'transfer' | 'bridge' | 'faucet'>('transfer');
+  const [activeTab, setActiveTab] = useState<'transfer' | 'bridge' | 'faucet' | 'offramp'>('transfer');
 
   const tabs = [
     { key: 'transfer' as const, label: 'Send', icon: Send },
     { key: 'bridge' as const, label: 'Bridge', icon: ArrowLeftRight },
     { key: 'faucet' as const, label: 'Faucet', icon: Droplets },
+    { key: 'offramp' as const, label: 'Off-Ramp', icon: Building },
   ];
 
   return (
@@ -310,6 +403,7 @@ export function PaymentsPanel() {
         {activeTab === 'transfer' && <TransferTab />}
         {activeTab === 'bridge' && <BridgeTab />}
         {activeTab === 'faucet' && <FaucetTab />}
+        {activeTab === 'offramp' && <OfframpTab />}
       </div>
     </div>
   );
