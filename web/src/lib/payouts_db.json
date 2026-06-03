@@ -1,0 +1,22 @@
+[
+  {
+    "id": "payout_1",
+    "bankAccountId": "bank-active-1",
+    "bankName": "JPMorgan Chase Bank",
+    "amount": 25000.00,
+    "currency": "USD",
+    "status": "settled",
+    "timestamp": "2026-06-03T18:15:30.000Z",
+    "escrowId": "1"
+  },
+  {
+    "id": "payout_2",
+    "bankAccountId": "bank-active-1",
+    "bankName": "JPMorgan Chase Bank",
+    "amount": 12500.50,
+    "currency": "USD",
+    "status": "processing",
+    "timestamp": "2026-06-04T01:10:00.000Z",
+    "escrowId": "2"
+  }
+]

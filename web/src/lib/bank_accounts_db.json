@@ -1,0 +1,19 @@
+[
+  {
+    "id": "bank-active-1",
+    "nickname": "Chase Operating Treasury",
+    "bankName": "JPMorgan Chase Bank",
+    "currency": "USD",
+    "status": "active",
+    "maskedAccount": "******7890",
+    "routingNumber": "021000021",
+    "iv": "30dfdfb1807de385e05a8b79",
+    "encryptedData": "8b525f778a8cf38c12a433f4a9b46e3d2319ef",
+    "tag": "d6fa0a941e3d3600f60c78a05c31ee08",
+    "approvals": [
+      "0x10878a01a034c68d660e53aa57e71c1087e71c8c",
+      "0xe6a18a01a034c68d660e53aa57e71c1087e71c8c"
+    ],
+    "requiredApprovals": 2
+  }
+]
