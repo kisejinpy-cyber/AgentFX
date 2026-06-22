@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'fs';
 import path from 'path';
+import crypto from 'crypto';
+import { isRateLimited, getClientIp } from '@/lib/rateLimit';
+import { trackMetric } from '@/app/api/metrics/route';
 
 // Local file storage path for compliance logs inside the workspace
 const LOG_FILE_PATH = path.join(process.cwd(), 'src/lib/compliance_db.json');
@@ -19,14 +22,101 @@ interface ComplianceLog {
   score: string;
 }
 
+const SEED_LOGS: ComplianceLog[] = [
+  {
+    address: '0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D'.toLowerCase(),
+    timestamp: new Date(Date.now() - 86400 * 1000 * 2).toISOString(),
+    category: 'OFAC Sanctioned Entity',
+    status: 'DENIED',
+    score: 'SEVERE',
+  },
+  {
+    address: '0x1533C3962F8b28Ba27caAD2E2054895221000000'.toLowerCase(),
+    timestamp: new Date(Date.now() - 86400 * 1000 * 4).toISOString(),
+    category: 'OFAC Sanctioned Entity',
+    status: 'DENIED',
+    score: 'SEVERE',
+  },
+  {
+    address: '0xf92f9d2a7522eada51bf891e1087e71c891e9999'.toLowerCase(),
+    timestamp: new Date(Date.now() - 86400 * 1000 * 6).toISOString(),
+    category: 'Circle Sanctions Blocklist',
+    status: 'DENIED',
+    score: 'SEVERE',
+  },
+  {
+    address: '0x9cE7a5b39a6E7D0816759bBe0b075Fa0B39F8888'.toLowerCase(),
+    timestamp: new Date(Date.now() - 86400 * 1000 * 9).toISOString(),
+    category: 'Frozen Wallet',
+    status: 'DENIED',
+    score: 'HIGH',
+  },
+  {
+    address: '0xe6A13B821A58d28e7522EadA51Bf891E1087E71C'.toLowerCase(),
+    timestamp: new Date(Date.now() - 86400 * 1000 * 12).toISOString(),
+    category: 'Custom Developer Blocklist',
+    status: 'DENIED',
+    score: 'HIGH',
+  },
+  {
+    address: '0x32cd9d2A7522EadA51Bf891E1087E71C891E9999'.toLowerCase(),
+    timestamp: new Date(Date.now() - 86400 * 1000 * 15).toISOString(),
+    category: 'Severe Sanctions Risk',
+    status: 'DENIED',
+    score: 'SEVERE',
+  },
+  {
+    address: '0x1087E71CD83101adF154d8215522EadA51Bf8899'.toLowerCase(),
+    timestamp: new Date(Date.now() - 86400 * 1000 * 18).toISOString(),
+    category: 'Severe Terrorist Financing',
+    status: 'DENIED',
+    score: 'SEVERE',
+  },
+  {
+    address: '0xe6a13b821a58d28e7522eada51bf891e1087e8889'.toLowerCase(),
+    timestamp: new Date(Date.now() - 86400 * 1000 * 20).toISOString(),
+    category: 'Severe CSAM Risk',
+    status: 'DENIED',
+    score: 'SEVERE',
+  },
+  {
+    address: '0x32cd9d2a7522eada51bf891e1087e71c891e7779'.toLowerCase(),
+    timestamp: new Date(Date.now() - 86400 * 1000 * 25).toISOString(),
+    category: 'Severe Illicit Activity',
+    status: 'DENIED',
+    score: 'SEVERE',
+  },
+  {
+    address: '0x9ce7a5b39a6e7d0816759bbe0b075fa0b39f9999'.toLowerCase(),
+    timestamp: new Date(Date.now() - 86400 * 1000 * 28).toISOString(),
+    category: 'Circle Sanctions Blocklist',
+    status: 'DENIED',
+    score: 'SEVERE',
+  }
+];
+
 // Ensure the directory and file exist
 function ensureLogFile() {
   const dir = path.dirname(LOG_FILE_PATH);
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
+  let shouldSeed = false;
   if (!fs.existsSync(LOG_FILE_PATH)) {
-    fs.writeFileSync(LOG_FILE_PATH, JSON.stringify([], null, 2), 'utf-8');
+    shouldSeed = true;
+  } else {
+    try {
+      const content = fs.readFileSync(LOG_FILE_PATH, 'utf-8').trim();
+      if (!content || content === '[]' || content === '""') {
+        shouldSeed = true;
+      }
+    } catch {
+      shouldSeed = true;
+    }
+  }
+
+  if (shouldSeed) {
+    fs.writeFileSync(LOG_FILE_PATH, JSON.stringify(SEED_LOGS, null, 2), 'utf-8');
   }
 }
 
@@ -54,12 +144,22 @@ function writeLogs(logs: ComplianceLog[]) {
 
 export async function POST(req: NextRequest) {
   try {
+    trackMetric('POST', '/api/compliance/check');
+    const ip = getClientIp(req);
+    if (isRateLimited(ip, 'compliance-check-post', { windowMs: 60 * 1000, maxRequests: 15 })) {
+      return NextResponse.json({ error: 'Rate limit exceeded. Try again in a minute.' }, { status: 429 });
+    }
+
     const { address } = await req.json();
     if (!address || typeof address !== 'string') {
       return NextResponse.json({ error: 'Invalid address parameter' }, { status: 400 });
     }
 
     const normalizedAddress = address.trim().toLowerCase();
+    if (!/^0x[a-fA-F0-9]{40}$/.test(normalizedAddress)) {
+      return NextResponse.json({ error: 'Invalid Ethereum/Arc address format' }, { status: 400 });
+    }
+
     let blocked = false;
     let category = 'Approved';
     let score = 'LOW';
@@ -166,15 +266,26 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ blocked: false });
   } catch (err: any) {
     console.error('Compliance screening handler error:', err);
-    return NextResponse.json({ error: err.message || 'Internal server error' }, { status: 500 });
+    const isProd = process.env.NODE_ENV === 'production';
+    const displayError = isProd ? 'An unexpected server error occurred.' : (err.message || 'Unknown error');
+    return NextResponse.json({ error: displayError }, { status: 500 });
   }
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    trackMetric('GET', '/api/compliance/check');
+    const ip = getClientIp(req);
+    if (isRateLimited(ip, 'compliance-check-get', { windowMs: 60 * 1000, maxRequests: 30 })) {
+      return NextResponse.json({ error: 'Rate limit exceeded. Try again in a minute.' }, { status: 429 });
+    }
+
     const logs = readLogs();
     return NextResponse.json(logs);
   } catch (err: any) {
-    return NextResponse.json({ error: err.message || 'Internal server error' }, { status: 500 });
+    console.error('Compliance GET handler error:', err);
+    const isProd = process.env.NODE_ENV === 'production';
+    const displayError = isProd ? 'An unexpected server error occurred.' : (err.message || 'Unknown error');
+    return NextResponse.json({ error: displayError }, { status: 500 });
   }
 }
