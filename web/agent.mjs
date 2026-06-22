@@ -7,13 +7,10 @@
  * Circle Developer-Controlled Wallet endpoints.
  */
 
+import "./loadenv.js";
 import { ethers } from "ethers";
-import dotenv from "dotenv";
 import path from "path";
 import fs from "fs";
-
-// Load environment config
-dotenv.config({ path: path.resolve(process.cwd(), "../contracts/.env") });
 
 // Import local HSM / Circle DCW execution helper
 import { executeContractCall } from "./src/lib/circleAgentWallet.ts";
@@ -52,7 +49,7 @@ async function main() {
   const escrowContract = new ethers.Contract(AUTO_ESCROW_ADDRESS, AUTO_ESCROW_ABI, provider);
 
   // Monitor New Escrows
-  escrowContract.on("EscrowCreated", async (escrowId, buyer, seller, agent, totalAmount, deadline, event) => {
+  escrowContract.on("JobCreated", async (escrowId, buyer, seller, agent, totalAmount, deadline, event) => {
     // Only process if THIS agent is the designated verifier
     if (agent.toLowerCase() === AGENT_WALLET_ADDRESS.toLowerCase()) {
       console.log(`\n🔔 [New Escrow Detected] ID: ${escrowId}`);

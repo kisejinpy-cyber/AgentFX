@@ -25,6 +25,9 @@ node_modules/
 .env.production
 *.env
 *.env.local
+!.env.example
+!*.env.example
+
 
 # Cache, linting, and temporary files
 .cache/
@@ -59,3 +62,6 @@ typechain/
 typechain-types/
 coverage/
 coverage.json
+
+# Local Runtime Databases
+web/src/lib/*_db.json
