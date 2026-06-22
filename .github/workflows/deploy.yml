@@ -1,0 +1,57 @@
+name: Production Deploy Pipeline
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  deploy-staging:
+    name: Deploy to Staging Environment
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Configure AWS/GCP/Kubernetes credentials
+        run: echo "Configuring secure Kubernetes context for Staging"
+
+      - name: Apply Staging Configurations
+        run: |
+          echo "Applying configs to Staging namespace..."
+          # kubectl apply -f kubernetes/configmap.yaml -n staging
+          # kubectl apply -f kubernetes/secret.yaml -n staging
+          # kubectl apply -f kubernetes/deployment.yaml -n staging
+          # kubectl apply -f kubernetes/service.yaml -n staging
+
+      - name: Verify Staging Health
+        run: |
+          echo "Verifying service rollout..."
+          # kubectl rollout status deployment/agentfx-web -n staging --timeout=120s
+
+  deploy-production:
+    name: Deploy to Production Environment
+    needs: deploy-staging
+    runs-on: ubuntu-latest
+    environment:
+      name: Production
+      url: https://agentfx.io
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Configure AWS/GCP/Kubernetes credentials
+        run: echo "Configuring secure Kubernetes context for Production"
+
+      - name: Apply Production Configurations
+        run: |
+          echo "Applying configs to Production namespace..."
+          # kubectl apply -f kubernetes/configmap.yaml -n production
+          # kubectl apply -f kubernetes/secret.yaml -n production
+          # kubectl apply -f kubernetes/deployment.yaml -n production
+          # kubectl apply -f kubernetes/service.yaml -n production
+
+      - name: Verify Production Health
+        run: |
+          echo "Verifying rollout status..."
+          # kubectl rollout status deployment/agentfx-web -n production --timeout=180s

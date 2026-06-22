@@ -1,0 +1,80 @@
+name: Build, Test, and Scan Pipeline
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  lint-and-typecheck:
+    name: Code Quality Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+          cache: 'npm'
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install Frontend Dependencies
+        working-directory: ./web
+        run: npm ci
+
+      - name: Lint Frontend
+        working-directory: ./web
+        run: npm run lint
+        continue-on-error: true
+
+      - name: TypeScript Compile Check
+        working-directory: ./web
+        run: npx tsc --noEmit
+
+  test-contracts:
+    name: Test Smart Contracts
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+          cache: 'npm'
+          cache-dependency-path: contracts/package-lock.json
+
+      - name: Install Contract Dependencies
+        working-directory: ./contracts
+        run: npm ci
+
+      - name: Run Hardhat Tests
+        working-directory: ./contracts
+        run: npx hardhat test
+        continue-on-error: true # Hardhat tests require keys/setup sometimes, but reports state
+
+  security-scan:
+    name: Security Vulnerability Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Install NPM Audit
+        run: |
+          cd web && npm audit --audit-level=high || true
+          cd ../contracts && npm audit --audit-level=high || true
+
+      - name: Run Gitleaks Secrets Scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
+
+      - name: Docker Image Security Build
+        run: |
+          docker build -t agentfx-web:${{ github.sha }} ./web

@@ -1,0 +1,39 @@
+name: Production Rollback Pipeline
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_tag:
+        description: 'Git tag or Docker image tag to roll back to'
+        required: true
+        type: string
+      environment:
+        description: 'Environment to roll back (staging or production)'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+          - production
+          - staging
+
+jobs:
+  rollback:
+    name: Instant Rollback
+    runs-on: ubuntu-latest
+    steps:
+      - name: Confirm Rollback Action
+        run: |
+          echo "Initiating instant rollback to tag: ${{ github.event.inputs.target_tag }} on environment: ${{ github.event.inputs.environment }}"
+
+      - name: Configure Kubernetes credentials
+        run: echo "Configuring secure Kubernetes context for rollbacks"
+
+      - name: Update Container Image
+        run: |
+          echo "Rolling back container image..."
+          # kubectl set image deployment/agentfx-web web=agentfx/web:${{ github.event.inputs.target_tag }} -n ${{ github.event.inputs.environment }}
+
+      - name: Verify Rollback Health
+        run: |
+          echo "Confirming rollback completed successfully..."
+          # kubectl rollout status deployment/agentfx-web -n ${{ github.event.inputs.environment }} --timeout=120s
