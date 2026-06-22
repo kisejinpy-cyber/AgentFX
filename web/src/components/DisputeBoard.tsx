@@ -30,6 +30,8 @@ import {
   explorerAddressUrl
 } from '@/lib/constants';
 import { useToast } from '@/components/ui/Toast';
+import { getBootstrapDisputedJobs, getBootstrapDAOProposals } from '@/lib/bootstrapData';
+import { Skeleton } from '@/components/ui/motion/LoadingLibrary';
 
 interface EscrowData {
   id: number;
@@ -46,6 +48,7 @@ interface EscrowData {
   settlementToken: string;
   isDisputed: boolean;
   disputeReason: string;
+  isSample?: boolean;
 }
 
 interface DisputeStateData {
@@ -62,6 +65,7 @@ interface ProposalData {
   buyerPercent: number;
   approvals: number;
   executed: boolean;
+  isSample?: boolean;
 }
 
 export function DisputeBoard() {
@@ -96,6 +100,22 @@ export function DisputeBoard() {
   });
 
   const fetchJobDisputeDetails = useCallback(async (jobId: number, agents: string[]) => {
+    if (jobId >= 9900) {
+      setDisputeState({
+        threshold: BigInt(2),
+        releaseVotes: BigInt(1),
+        refundVotes: BigInt(0),
+        resolved: false,
+        humanArbiter: '0x1087E71CD83101adF154d8215522EadA51Bf891E'
+      });
+      setAgentVoteDetails({
+        '0x1087E71CD83101adF154d8215522EadA51Bf891E': { hasVoted: true, vote: 1 },
+        '0xe6A13B821A58d28e7522EadA51Bf891E1087E71C': { hasVoted: false, vote: 0 },
+        '0x9cE7a5b39a6E7D0816759bBe0b075Fa0B39Fc72d': { hasVoted: false, vote: 0 }
+      });
+      return;
+    }
+
     const { createPublicClient, http } = await import('viem');
     const { arcTestnet } = await import('@/components/Web3Provider');
     const client = createPublicClient({ chain: arcTestnet, transport: http() });
@@ -145,8 +165,10 @@ export function DisputeBoard() {
   const fetchDisputedJobs = useCallback(async () => {
     if (nextId === undefined) return;
     const count = Number(nextId);
+    
+    // Fallback if count is 0
     if (count === 0) {
-      setDisputedJobs([]);
+      setDisputedJobs(getBootstrapDisputedJobs(address));
       setLoading(false);
       return;
     }
@@ -198,20 +220,31 @@ export function DisputeBoard() {
         }
       }
 
-      setDisputedJobs(disputed);
+      // Blend real disputed jobs with mock ones
+      const combined = [...disputed, ...getBootstrapDisputedJobs(address)];
+      setDisputedJobs(combined);
 
       // Refresh currently selected job details if it's in the list
       if (selectedJob) {
-        const updatedSelected = disputed.find(j => j.id === selectedJob.id);
+        const updatedSelected = combined.find(j => j.id === selectedJob.id);
         if (updatedSelected) {
           setSelectedJob(updatedSelected);
-          // Fetch agents
-          const agents = await client.readContract({
-            address: AUTO_ESCROW_ADDRESS as `0x${string}`,
-            abi: AUTO_ESCROW_ABI,
-            functionName: 'getJobAgents',
-            args: [BigInt(selectedJob.id)]
-          }) as string[];
+          
+          let agents: string[];
+          if (selectedJob.id >= 9900) {
+            agents = [
+              '0x1087E71CD83101adF154d8215522EadA51Bf891E',
+              '0xe6A13B821A58d28e7522EadA51Bf891E1087E71C',
+              '0x9cE7a5b39a6E7D0816759bBe0b075Fa0B39Fc72d'
+            ];
+          } else {
+            agents = await client.readContract({
+              address: AUTO_ESCROW_ADDRESS as `0x${string}`,
+              abi: AUTO_ESCROW_ABI,
+              functionName: 'getJobAgents',
+              args: [BigInt(selectedJob.id)]
+            }) as string[];
+          }
           setSelectedJobAgents(agents);
           await fetchJobDisputeDetails(selectedJob.id, agents);
         } else {
@@ -274,9 +307,18 @@ export function DisputeBoard() {
         });
       }
 
-      setDaoProposals(proposals.reverse());
+      const combinedProposals = proposals.length === 0
+        ? getBootstrapDAOProposals()
+        : [...proposals.reverse(), ...getBootstrapDAOProposals()];
+      setDaoProposals(combinedProposals);
     } catch (err) {
-      console.error('Error fetching DAO state:', err);
+      console.error('Error fetching DAO state, using mock sandbox:', err);
+      setDaoThreshold(2);
+      setDaoOwners([
+        '0x1087E71CD83101adF154d8215522EadA51Bf891E',
+        '0xe6A13B821A58d28e7522EadA51Bf891E1087E71C'
+      ]);
+      setDaoProposals(getBootstrapDAOProposals());
     }
   }, []);
 
@@ -294,6 +336,31 @@ export function DisputeBoard() {
       title: 'Submitting Vote',
       message: `Recording ${decision === 1 ? 'Release' : 'Refund'} vote for Job #${selectedJob.id}...`
     });
+
+    if (selectedJob.isSample) {
+      await new Promise(r => setTimeout(r, 1000));
+      updateToast(toastId, {
+        type: 'success',
+        title: 'Consensus Vote Recorded (Simulated)',
+        message: `Your agent node vote of ${decision === 1 ? 'Release' : 'Refund'} has been recorded in sandbox.`,
+      });
+      setDisputeState(prev => {
+        if (!prev) return null;
+        return {
+          ...prev,
+          releaseVotes: decision === 1 ? prev.releaseVotes + BigInt(1) : prev.releaseVotes,
+          refundVotes: decision === 2 ? prev.refundVotes + BigInt(1) : prev.refundVotes
+        };
+      });
+      if (address) {
+        setAgentVoteDetails(prev => ({
+          ...prev,
+          [address]: { hasVoted: true, vote: decision }
+        }));
+      }
+      setActing(false);
+      return;
+    }
 
     try {
       const txHash = await writeContractAsync({
@@ -335,6 +402,18 @@ export function DisputeBoard() {
       title: 'Submitting Arbitration',
       message: `Resolving Job #${selectedJob.id} with ${buyerPercentInput}% to buyer...`
     });
+
+    if (selectedJob.isSample) {
+      await new Promise(r => setTimeout(r, 1000));
+      updateToast(toastId, {
+        type: 'success',
+        title: 'Dispute Arbitrated (Simulated)',
+        message: `Job #${selectedJob.id} resolved successfully in sandbox.`,
+      });
+      setDisputeState(prev => prev ? { ...prev, resolved: true } : null);
+      setActing(false);
+      return;
+    }
 
     try {
       const txHash = await writeContractAsync({
@@ -378,6 +457,27 @@ export function DisputeBoard() {
       message: `Proposing resolution for Job #${daoJobId}...`
     });
 
+    if (parseInt(daoJobId) >= 9900) {
+      await new Promise(r => setTimeout(r, 1000));
+      updateToast(toastId, {
+        type: 'success',
+        title: 'DAO Proposal Created (Simulated)',
+        message: `Multisig resolution proposal created in sandbox.`,
+      });
+      const newProp = {
+        id: 900 + daoProposals.length + 1,
+        jobId: parseInt(daoJobId),
+        buyerPercent: daoBuyerPercent,
+        approvals: 1,
+        executed: false,
+        isSample: true
+      };
+      setDaoProposals(prev => [newProp, ...prev]);
+      setDaoJobId('');
+      setActing(false);
+      return;
+    }
+
     try {
       const txHash = await writeContractAsync({
         address: DISPUTE_DAO_ADDRESS,
@@ -419,6 +519,29 @@ export function DisputeBoard() {
       message: `Signing DAO approval for proposal #${propId}...`
     });
 
+    if (propId >= 900) {
+      await new Promise(r => setTimeout(r, 1000));
+      updateToast(toastId, {
+        type: 'success',
+        title: 'Proposal Approved (Simulated)',
+        message: `DAO approval signed. Execute triggered if threshold met.`,
+      });
+      setDaoProposals(prev => prev.map(p => {
+        if (p.id === propId) {
+          const nextApprovals = p.approvals + 1;
+          const threshold = daoThreshold || 2;
+          return {
+            ...p,
+            approvals: nextApprovals,
+            executed: nextApprovals >= threshold ? true : p.executed
+          };
+        }
+        return p;
+      }));
+      setActing(false);
+      return;
+    }
+
     try {
       const txHash = await writeContractAsync({
         address: DISPUTE_DAO_ADDRESS,
@@ -452,9 +575,15 @@ export function DisputeBoard() {
   };
 
   // Check user roles
-  const isSelectedJobAgent = address ? selectedJobAgents.some(a => a.toLowerCase() === address.toLowerCase()) : false;
-  const isSelectedJobArbiter = address && disputeState ? disputeState.humanArbiter.toLowerCase() === address.toLowerCase() : false;
-  const isDaoOwner = address ? daoOwners.some(o => o.toLowerCase() === address.toLowerCase()) : false;
+  const isSelectedJobAgent = selectedJob?.isSample 
+    ? true 
+    : (address ? selectedJobAgents.some(a => a.toLowerCase() === address.toLowerCase()) : false);
+  const isSelectedJobArbiter = selectedJob?.isSample 
+    ? true 
+    : (address && disputeState ? disputeState.humanArbiter.toLowerCase() === address.toLowerCase() : false);
+  const isDaoOwner = (selectedJob?.isSample || daoProposals.some(p => p.isSample))
+    ? true
+    : (address ? daoOwners.some(o => o.toLowerCase() === address.toLowerCase()) : false);
 
   return (
     <div className="space-y-8">
@@ -477,9 +606,20 @@ export function DisputeBoard() {
             </div>
 
             {loading ? (
-              <div className="flex items-center justify-center py-12 gap-3">
-                <Loader2 className="w-5 h-5 text-cyan-400 animate-spin" />
-                <span className="text-xs text-gray-500">Scanning registry...</span>
+              <div className="space-y-3">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="p-4 rounded-xl border border-gray-800/40 bg-gray-950/30 space-y-2.5">
+                    <div className="flex justify-between">
+                      <Skeleton className="h-4 w-1/4" />
+                      <Skeleton className="h-4 w-1/5" />
+                    </div>
+                    <Skeleton className="h-6 w-full" />
+                    <div className="flex justify-between">
+                      <Skeleton className="h-3 w-1/3" />
+                      <Skeleton className="h-3 w-1/3" />
+                    </div>
+                  </div>
+                ))}
               </div>
             ) : disputedJobs.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 gap-3 border border-dashed border-gray-800/60 rounded-xl bg-gray-950/20">
@@ -505,6 +645,11 @@ export function DisputeBoard() {
                         {job.invoiceRef && (
                           <span className="text-[10px] text-gray-500 truncate max-w-[120px] font-mono">
                             {job.invoiceRef}
+                          </span>
+                        )}
+                        {job.isSample && (
+                          <span className="text-[8px] font-bold text-amber-500 bg-amber-500/10 border border-amber-500/20 px-1 py-0.2 rounded uppercase">
+                            Sandbox
                           </span>
                         )}
                       </div>
@@ -562,9 +707,15 @@ export function DisputeBoard() {
                   <h3 className="text-base font-semibold text-gray-200">
                     Dispute Details — Job #{selectedJob.id}
                   </h3>
-                  <span className="text-xs bg-red-950/20 text-red-400 border border-red-900/30 px-2 py-0.5 rounded font-mono">
-                    LOCKED
-                  </span>
+                  {selectedJob.isSample ? (
+                    <span className="text-xs bg-amber-950/20 text-amber-400 border border-amber-900/30 px-2 py-0.5 rounded font-mono uppercase">
+                      Sandbox Simulation
+                    </span>
+                  ) : (
+                    <span className="text-xs bg-red-950/20 text-red-400 border border-red-900/30 px-2 py-0.5 rounded font-mono">
+                      LOCKED
+                    </span>
+                  )}
                 </div>
                 <p className="text-xs text-gray-500">
                   Total Budget: {formatUnits(selectedJob.totalAmount, USDC_DECIMALS)} USDC | Created on {new Date(Number(selectedJob.createdAt) * 1000).toLocaleDateString()}
@@ -781,6 +932,11 @@ export function DisputeBoard() {
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-semibold text-gray-300">Proposal #{prop.id}</span>
                         <span className="text-[10px] text-gray-500 font-mono">Job #{prop.jobId}</span>
+                        {prop.isSample && (
+                          <span className="text-[8px] font-bold text-amber-500 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.2 rounded uppercase">
+                            Sandbox
+                          </span>
+                        )}
                       </div>
                       <p className="text-[10px] text-gray-400">
                         Resolution: <span className="text-cyan-400 font-semibold">{prop.buyerPercent}% Refund</span> to buyer, {100 - prop.buyerPercent}% release to seller.

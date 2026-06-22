@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useAccount } from 'wagmi';
 import {
   Activity,
   Plus,
@@ -23,15 +24,7 @@ import {
 } from '@/lib/constants';
 import { formatUnits } from 'viem';
 
-interface EventLog {
-  id: string;
-  type: 'created' | 'released' | 'refunded' | 'dispute' | 'resolved' | 'milestone';
-  escrowId: number;
-  txHash: string;
-  blockNumber: bigint;
-  details: string;
-  timestamp?: number;
-}
+import { getBootstrapEvents, EventLog } from '@/lib/bootstrapData';
 
 const EVENT_CONFIG: Record<string, { icon: React.ElementType; color: string; bgColor: string }> = {
   created:   { icon: Plus, color: 'text-cyan-400', bgColor: 'bg-cyan-500/10 border-cyan-500/20' },
@@ -43,6 +36,7 @@ const EVENT_CONFIG: Record<string, { icon: React.ElementType; color: string; bgC
 };
 
 export function ActivityLog() {
+  const { address } = useAccount();
   const [events, setEvents] = useState<EventLog[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -101,6 +95,7 @@ export function ActivityLog() {
             txHash: log.transactionHash,
             blockNumber: log.blockNumber,
             details: `$${amt} USDC locked by ${truncateAddress(args.buyer || '')} → ${truncateAddress(args.seller || '')}`,
+            timestamp: Date.now(),
           });
         }
 
@@ -114,6 +109,7 @@ export function ActivityLog() {
             txHash: log.transactionHash,
             blockNumber: log.blockNumber,
             details: `$${amt} USDC released to seller`,
+            timestamp: Date.now(),
           });
         }
 
@@ -127,6 +123,7 @@ export function ActivityLog() {
             txHash: log.transactionHash,
             blockNumber: log.blockNumber,
             details: `$${amt} USDC refunded to buyer`,
+            timestamp: Date.now(),
           });
         }
 
@@ -139,6 +136,7 @@ export function ActivityLog() {
             txHash: log.transactionHash,
             blockNumber: log.blockNumber,
             details: `Dispute raised by ${truncateAddress(args.raisedBy || '')}${args.reason ? `: ${args.reason}` : ''}`,
+            timestamp: Date.now(),
           });
         }
 
@@ -151,6 +149,7 @@ export function ActivityLog() {
             txHash: log.transactionHash,
             blockNumber: log.blockNumber,
             details: 'Dispute resolved by agent',
+            timestamp: Date.now(),
           });
         }
 
@@ -158,7 +157,10 @@ export function ActivityLog() {
         allEvents.sort((a, b) => Number(b.blockNumber - a.blockNumber));
 
         if (!cancelled) {
-          setEvents(allEvents);
+          const finalEvents = allEvents.length === 0 
+            ? getBootstrapEvents(address)
+            : [...allEvents, ...getBootstrapEvents(address)];
+          setEvents(finalEvents);
           setLoading(false);
         }
       } catch (e) {
@@ -171,7 +173,7 @@ export function ActivityLog() {
     // Refresh every 15s
     const interval = setInterval(fetchEvents, 15_000);
     return () => { cancelled = true; clearInterval(interval); };
-  }, []);
+  }, [address]);
 
   return (
     <div className="bg-gray-900/40 backdrop-blur-xl border border-gray-800/50 rounded-2xl shadow-2xl animate-fade-in overflow-hidden">
@@ -215,14 +217,20 @@ export function ActivityLog() {
                   </div>
                   <p className="text-[11px] text-gray-400 leading-relaxed truncate">{event.details}</p>
                 </div>
-                <a
-                  href={explorerTxUrl(event.txHash)}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-gray-600 hover:text-cyan-400 transition-colors shrink-0 mt-1"
-                >
-                  <ArrowUpRight className="w-3.5 h-3.5" />
-                </a>
+                {!event.isSample ? (
+                  <a
+                    href={explorerTxUrl(event.txHash)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-gray-600 hover:text-cyan-400 transition-colors shrink-0 mt-1"
+                  >
+                    <ArrowUpRight className="w-3.5 h-3.5" />
+                  </a>
+                ) : (
+                  <span className="text-[8px] font-bold text-amber-500 bg-amber-500/10 border border-amber-500/20 px-1.5 py-0.5 rounded uppercase mt-1 shrink-0">
+                    Sample
+                  </span>
+                )}
               </div>
             );
           })}

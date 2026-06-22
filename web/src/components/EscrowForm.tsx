@@ -16,6 +16,8 @@ import {
   DISPUTE_DAO_ADDRESS,
 } from '@/lib/constants';
 import { useToast } from '@/components/ui/Toast';
+import { useModal } from '@/components/ui/modals/ModalContext';
+import { interpretError } from '@/components/ui/modals/ErrorInterpreter';
 import { STATIC_AGENTS } from './AgentDirectory';
 import { executeUnifiedFunding, BridgeStatus, BridgeStep } from '@/lib/appKitHelper';
 import { Layers } from 'lucide-react';
@@ -30,6 +32,7 @@ interface EscrowFormProps {
 export function EscrowForm({ agentAddress, setAgentAddress }: EscrowFormProps) {
   const { address, isConnected, connector } = useAccount();
   const { addToast, updateToast } = useToast();
+  const { openModal, replaceModal, closeModal } = useModal();
 
   const [jobDescription, setJobDescription] = useState('');
   const [sellerAddress, setSellerAddress] = useState('');
@@ -121,6 +124,18 @@ export function EscrowForm({ agentAddress, setAgentAddress }: EscrowFormProps) {
     if (!address) return;
     setTxStep('creating');
 
+    const modalId = openModal('processing', {
+      title: 'Creating Escrow Smart Contract',
+      message: 'Deploying escrow agreement and allocating funds across networks.',
+      steps: [
+        'Pre-screening compliance check',
+        'Initiating USDC cross-chain bridge sweep',
+        'Locking funds in AutoEscrow contract',
+      ],
+      currentStepIndex: 0,
+      statusText: 'Running compliance checks...',
+    });
+
     // Pre-screening compliance checks
     try {
       const sellerCheck = await fetch('/api/compliance/check', {
@@ -131,10 +146,10 @@ export function EscrowForm({ agentAddress, setAgentAddress }: EscrowFormProps) {
 
       if (sellerCheck.blocked) {
         setTxStep('idle');
-        setBridgeStatus({
-          step: 'FAILED',
+        replaceModal(modalId, 'error', {
+          title: 'Compliance Check Failed',
           message: 'The seller address failed compliance screening and is blocked.',
-          error: 'Compliance Check Failed',
+          errorDetails: 'Address listed on sanctions blocklist.',
         });
         return;
       }
@@ -147,10 +162,10 @@ export function EscrowForm({ agentAddress, setAgentAddress }: EscrowFormProps) {
         }).then(r => r.json());
         if (agentCheck.blocked) {
           setTxStep('idle');
-          setBridgeStatus({
-            step: 'FAILED',
+          replaceModal(modalId, 'error', {
+            title: 'Compliance Check Failed',
             message: 'The AI Agent address failed compliance screening and is blocked.',
-            error: 'Compliance Check Failed',
+            errorDetails: 'Address listed on sanctions blocklist.',
           });
           return;
         }
@@ -164,17 +179,30 @@ export function EscrowForm({ agentAddress, setAgentAddress }: EscrowFormProps) {
         }).then(r => r.json());
         if (arbiterCheck.blocked) {
           setTxStep('idle');
-          setBridgeStatus({
-            step: 'FAILED',
+          replaceModal(modalId, 'error', {
+            title: 'Compliance Check Failed',
             message: 'The fallback human arbiter address failed compliance screening and is blocked.',
-            error: 'Compliance Check Failed',
+            errorDetails: 'Address listed on sanctions blocklist.',
           });
           return;
         }
       }
-    } catch (e) {
+    } catch (e: any) {
       console.error('Compliance pre-screening failed:', e);
     }
+
+    // Advance modal to bridging
+    replaceModal(modalId, 'processing', {
+      title: 'Creating Escrow Smart Contract',
+      message: 'Deploying escrow agreement and allocating funds across networks.',
+      steps: [
+        'Pre-screening compliance check',
+        'Initiating USDC cross-chain bridge sweep',
+        'Locking funds in AutoEscrow contract',
+      ],
+      currentStepIndex: 1,
+      statusText: 'Bridging stablecoin to Arc Testnet via Circle CCTP...',
+    });
 
     const jobId = Math.floor(Math.random() * 1000) + 1;
 
@@ -183,15 +211,56 @@ export function EscrowForm({ agentAddress, setAgentAddress }: EscrowFormProps) {
       amount: totalAmount.toString(),
       userAddress: address,
       jobId,
+      connector,
       onStateChange: async (status) => {
         setBridgeStatus(status);
+
+        if (status.step === 'DEPOSITING' || status.step === 'BRIDGING') {
+          replaceModal(modalId, 'processing', {
+            title: 'Bridging Tokens',
+            message: 'Circle Gateway is sweeping and route-bridging stablecoins to Arc Network.',
+            steps: [
+              'Pre-screening compliance check',
+              'Initiating USDC cross-chain bridge sweep',
+              'Locking funds in AutoEscrow contract',
+            ],
+            currentStepIndex: 1,
+            statusText: status.message || 'Processing CCTP attestation...',
+          });
+        }
+
+        if (status.step === 'FAILED') {
+          setTxStep('idle');
+          const errInfo = interpretError(status.error);
+          replaceModal(modalId, 'error', {
+            title: 'Bridge Funding Failed',
+            message: status.message || errInfo.message,
+            errorDetails: status.error || 'Check wallet status and retry.',
+          });
+        }
+
         if (status.step === 'LOCKING') {
+          // Replace modal with signature prompt
+          replaceModal(modalId, 'transaction', {
+            title: 'Funding Escrow Agreement',
+            step: 'AWAITING_SIGNATURE',
+            gasCost: '0.005',
+          });
+
           try {
             const deadline = BigInt(Math.floor(Date.now() / 1000) + 14 * 24 * 60 * 60);
             const descs = milestones.map((m) => m.description);
             const amounts = milestones.map((m) => parseUnits(Number(m.amount).toFixed(6), USDC_DECIMALS));
 
             const isEURC = settlementCurrency === 'EURC';
+
+            replaceModal(modalId, 'transaction', {
+              title: 'Funding Escrow Agreement',
+              step: 'PENDING',
+              message: 'Preparing parameters and signing contract transaction...',
+              gasCost: '0.005',
+            });
+
             const escrowTxHash = await writeContractAsync({
               address: AUTO_ESCROW_ADDRESS,
               abi: AUTO_ESCROW_ABI,
@@ -222,6 +291,14 @@ export function EscrowForm({ agentAddress, setAgentAddress }: EscrowFormProps) {
               ]),
             });
 
+            replaceModal(modalId, 'transaction', {
+              title: 'Funding Escrow Agreement',
+              step: 'CONFIRMING',
+              txHash: escrowTxHash,
+              explorerUrl: `https://explorer.arc.circle.com/tx/${escrowTxHash}`,
+              gasCost: '0.005',
+            });
+
             const { createPublicClient, http } = await import('viem');
             const { arcTestnet } = await import('@/components/Web3Provider');
             const publicClient = createPublicClient({
@@ -241,6 +318,16 @@ export function EscrowForm({ agentAddress, setAgentAddress }: EscrowFormProps) {
             setSellerAddress('');
             setAgentAddress('');
             setMilestones([{ description: 'Deliverable 1', amount: '' }]);
+
+            replaceModal(modalId, 'success', {
+              title: 'Escrow Successfully Created',
+              message: `Successfully locked $${totalAmount.toFixed(2)} ${settlementCurrency} in escrow. Transaction confirmed on Arc Network!`,
+              actionButton: {
+                label: 'Acknowledge',
+                onClick: () => closeModal(modalId),
+              }
+            });
+
             setTimeout(() => {
               setTxStep('idle');
               setBridgeStatus(null);
@@ -248,6 +335,14 @@ export function EscrowForm({ agentAddress, setAgentAddress }: EscrowFormProps) {
           } catch (e: any) {
             console.error('Contract execution failed:', e);
             setTxStep('idle');
+            const errInfo = interpretError(e);
+
+            replaceModal(modalId, 'error', {
+              title: 'Escrow Creation Failed',
+              message: errInfo.message,
+              errorDetails: e.message || String(e),
+            });
+
             setBridgeStatus({
               step: 'FAILED',
               message: `Contract lock failed: ${e.message || 'Transaction rejected'}`,
@@ -272,6 +367,9 @@ export function EscrowForm({ agentAddress, setAgentAddress }: EscrowFormProps) {
     isMultiAgent,
     humanArbiter,
     DEFAULT_MULTI_AGENTS,
+    openModal,
+    replaceModal,
+    closeModal,
   ]);
 
   const handleRecoverLock = useCallback(async () => {

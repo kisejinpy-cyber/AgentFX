@@ -65,18 +65,18 @@ export function UnifiedBalanceWidget() {
     <div className="relative" ref={dropdownRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 bg-gradient-to-r from-gray-900/80 to-blue-950/20 hover:from-gray-800/80 hover:to-blue-950/40 border border-gray-800/60 hover:border-cyan-500/30 px-3.5 py-1.5 rounded-xl transition-all duration-300 group"
+        className="flex items-center gap-1.5 sm:gap-2 bg-gradient-to-r from-gray-900/80 to-blue-950/20 hover:from-gray-800/80 hover:to-blue-950/40 border border-gray-800/60 hover:border-cyan-500/30 px-2 py-1.5 sm:px-3.5 sm:py-1.5 rounded-xl transition-all duration-300 group"
       >
         <Layers className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
         <div className="text-left">
-          <p className="text-[9px] uppercase tracking-wider text-gray-500 font-semibold group-hover:text-gray-400 transition-colors">
+          <p className="text-[9px] uppercase tracking-wider text-gray-500 font-semibold group-hover:text-gray-400 transition-colors hidden sm:block">
             Unified Balance
           </p>
-          <p className="text-xs font-mono font-bold text-gray-200">
-            ${formattedTotal} <span className="text-[10px] text-gray-500 font-normal">USDC</span>
+          <p className="text-[11px] sm:text-xs font-mono font-bold text-gray-200">
+            ${formattedTotal} <span className="text-[10px] text-gray-500 font-normal hidden sm:inline">USDC</span>
           </p>
         </div>
-        <ChevronDown className={`w-3.5 h-3.5 text-gray-500 transition-transform duration-200 ${isOpen ? 'rotate-180 text-cyan-400' : 'group-hover:text-gray-400'}`} />
+        <ChevronDown className={`w-3 h-3 sm:w-3.5 sm:h-3.5 text-gray-500 transition-transform duration-200 ${isOpen ? 'rotate-180 text-cyan-400' : 'group-hover:text-gray-400'}`} />
       </button>
 
       {isOpen && (

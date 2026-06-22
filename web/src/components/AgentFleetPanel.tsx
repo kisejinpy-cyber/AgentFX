@@ -4,6 +4,8 @@ import { useState } from 'react';
 import { Bot, Plus, Shield, Network, Zap, CheckCircle, ExternalLink, Loader2, Database } from 'lucide-react';
 import { truncateAddress } from '@/lib/constants';
 import { GatewayFunding } from '@/components/GatewayFunding';
+import { useModal } from '@/components/ui/modals/ModalContext';
+import { interpretError } from '@/components/ui/modals/ErrorInterpreter';
 
 interface Agent {
   id: string;
@@ -15,6 +17,7 @@ interface Agent {
 }
 
 export function AgentFleetPanel() {
+  const { openModal, replaceModal } = useModal();
   const [agents, setAgents] = useState<Agent[]>([
     {
       id: 'ag-1',
@@ -29,13 +32,19 @@ export function AgentFleetPanel() {
 
   const handleProvision = async () => {
     setProvisioning(true);
+    const modalId = openModal('processing', {
+      title: 'Provisioning AI Agent',
+      message: 'Creating secure developer-controlled smart wallet and assigning verification policies.',
+      statusText: 'Contacting Circle Infrastructure...',
+    });
+
     try {
       const res = await fetch('/api/agent/provision', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
+      if (!res.ok) throw new Error(data.error || 'Failed to provision agent');
 
       setAgents(prev => [
         ...prev,
@@ -48,9 +57,19 @@ export function AgentFleetPanel() {
           status: 'active',
         }
       ]);
+
+      replaceModal(modalId, 'success', {
+        title: 'AI Agent Provisioned',
+        message: `Successfully provisioned new agent smart account: ${data.address}. Relaying policy is active.`,
+      });
     } catch (e: any) {
       console.error(e);
-      alert('Failed to provision agent: ' + e.message);
+      const errInfo = interpretError(e);
+      replaceModal(modalId, 'error', {
+        title: 'Provisioning Failed',
+        message: errInfo.message,
+        errorDetails: e.message || String(e),
+      });
     }
     setProvisioning(false);
   };

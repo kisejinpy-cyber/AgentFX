@@ -386,13 +386,13 @@ export function PaymentsPanel() {
           <button
             key={key}
             onClick={() => setActiveTab(key)}
-            className={`flex-1 flex items-center justify-center gap-1.5 py-3 text-xs font-medium transition-all
+            className={`flex-1 flex items-center justify-center gap-1 sm:gap-1.5 py-2.5 sm:py-3 text-[10px] sm:text-xs font-medium transition-all
               ${activeTab === key
                 ? 'text-cyan-400 border-b-2 border-cyan-400 bg-cyan-500/5'
                 : 'text-gray-500 hover:text-gray-300 hover:bg-gray-800/30'
               }`}
           >
-            <Icon className="w-3.5 h-3.5" />
+            <Icon className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
             {label}
           </button>
         ))}

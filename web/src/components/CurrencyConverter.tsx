@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useReadContract } from 'wagmi';
 import { parseUnits, formatUnits } from 'viem';
-import { RefreshCw, ArrowRightLeft, DollarSign, Euro } from 'lucide-react';
+import { RefreshCw, ArrowRightLeft, DollarSign, Euro, AlertTriangle } from 'lucide-react';
 import {
   USDC_ADDRESS,
   EURC_ADDRESS,
@@ -29,6 +29,7 @@ export function CurrencyConverter() {
   const [usdcVal, setUsdcVal] = useState('100');
   const [eurcVal, setEurcVal] = useState('');
   const [isUsdcToEurc, setIsUsdcToEurc] = useState(true);
+  const [slippage, setSlippage] = useState('0.5');
 
   // 1. Read StableFX router address from AutoEscrow
   const { data: routerAddress } = useReadContract({
@@ -165,6 +166,47 @@ export function CurrencyConverter() {
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Slippage & Price Protection controls */}
+      <div className="border-t border-gray-800/40 pt-3 space-y-2">
+        <div className="flex items-center justify-between text-[10px] text-gray-500 font-medium px-1">
+          <span className="uppercase tracking-wider font-semibold">Slippage Protection</span>
+          <div className="flex gap-1.5">
+            {['0.1', '0.5', '1.0'].map((val) => (
+              <button
+                key={val}
+                onClick={() => setSlippage(val)}
+                className={`px-1.5 py-0.5 rounded font-mono text-[9px] font-bold border transition-all ${
+                  slippage === val
+                    ? 'bg-cyan-500/10 border-cyan-500/40 text-cyan-400'
+                    : 'bg-transparent border-gray-800/60 text-gray-600 hover:text-gray-400'
+                }`}
+              >
+                {val}%
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {quoteAmount && (() => {
+          const currentRate = Number(eurcVal) / (Number(usdcVal) || 1);
+          const spotRate = 0.9200; // Benchmark spot rate
+          const priceImpact = Math.max(0, ((spotRate - currentRate) / spotRate) * 100);
+          const exceeded = priceImpact > parseFloat(slippage);
+
+          if (exceeded) {
+            return (
+              <div className="flex items-start gap-2 bg-red-950/20 border border-red-900/30 p-2.5 rounded-lg text-[10px] leading-normal animate-pulse">
+                <AlertTriangle className="w-3.5 h-3.5 shrink-0 text-red-400 mt-0.5" />
+                <span className="text-red-400 font-medium">
+                  Warning: FX Slippage is {priceImpact.toFixed(2)}%, exceeding your {slippage}% protection limit!
+                </span>
+              </div>
+            );
+          }
+          return null;
+        })()}
       </div>
 
       <div className="flex justify-between items-center text-[10px] text-gray-500 font-medium px-1">

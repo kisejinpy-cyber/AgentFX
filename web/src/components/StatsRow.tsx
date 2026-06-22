@@ -64,14 +64,17 @@ export function StatsRow() {
     query: { refetchInterval: 15_000 },
   });
 
-  const totalEscrows = nextEscrowId ? Number(nextEscrowId) : 0;
-  const tvl = contractBalance
+  const isReal = nextEscrowId !== undefined && Number(nextEscrowId) > 0;
+  
+  // Bootstrap fallback: TVL = $35,950.00, escrows = 5
+  const totalEscrows = isReal ? Number(nextEscrowId) : 5;
+  const tvl = isReal && contractBalance
     ? Number(formatUnits(contractBalance as bigint, USDC_DECIMALS))
-    : 0;
+    : 35950.00;
   const formattedTVL = tvl.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
-  // Yield counter (calculated based on real TVL at ~5.1% APY)
-  const [yieldAccrued, setYieldAccrued] = useState(0);
+  // Yield counter (calculated based on real or simulated TVL at ~5.1% APY)
+  const [yieldAccrued, setYieldAccrued] = useState(isReal ? 0 : 124.9582);
   useEffect(() => {
     // Calculate yield per second at 5.1% APY
     const yieldPerSecond = (tvl * 0.051) / (365 * 24 * 3600);
@@ -88,18 +91,30 @@ export function StatsRow() {
       <StatCard
         label="Total Value Locked"
         value={<span className="text-gray-100">${formattedTVL}</span>}
-        subtitle={`${totalEscrows} escrow${totalEscrows !== 1 ? 's' : ''} on-chain`}
+        subtitle={isReal ? `${totalEscrows} escrow${totalEscrows !== 1 ? 's' : ''} on-chain` : `${totalEscrows} escrows (Simulated)`}
         subtitleIcon={Activity}
-        subtitleColor="text-cyan-400"
-      />
+        subtitleColor={isReal ? "text-cyan-400" : "text-amber-400/80"}
+      >
+        {!isReal && (
+          <span className="absolute top-3 right-3 text-[8px] font-bold uppercase tracking-wider bg-amber-500/10 text-amber-400 border border-amber-500/20 px-1.5 py-0.5 rounded">
+            Sandbox
+          </span>
+        )}
+      </StatCard>
 
       <StatCard
         label="Active Escrows"
         value={<span className="text-gray-100">{totalEscrows}</span>}
-        subtitle="Verifiable on ArcScan"
+        subtitle={isReal ? "Verifiable on ArcScan" : "Mock Sandbox Activity"}
         subtitleIcon={RefreshCcw}
-        subtitleColor="text-blue-400"
-      />
+        subtitleColor={isReal ? "text-blue-400" : "text-amber-400/80"}
+      >
+        {!isReal && (
+          <span className="absolute top-3 right-3 text-[8px] font-bold uppercase tracking-wider bg-amber-500/10 text-amber-400 border border-amber-500/20 px-1.5 py-0.5 rounded">
+            Sandbox
+          </span>
+        )}
+      </StatCard>
 
       <StatCard
         label="Projected Yield (USYC)"
@@ -114,7 +129,13 @@ export function StatsRow() {
         subtitleColor="text-gray-500"
         accentBorder
         glow
-      />
+      >
+        {!isReal && (
+          <span className="absolute top-3 right-3 text-[8px] font-bold uppercase tracking-wider bg-amber-500/10 text-amber-400 border border-amber-500/20 px-1.5 py-0.5 rounded">
+            Sandbox
+          </span>
+        )}
+      </StatCard>
     </div>
   );
 }

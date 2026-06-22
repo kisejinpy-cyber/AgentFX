@@ -27,7 +27,7 @@ import {
 } from '@/lib/cctpAttestation';
 
 export function BridgePanel() {
-  const { address, isConnected } = useAccount();
+  const { address, isConnected, connector } = useAccount();
   const { addToast } = useToast();
 
   const [sourceChain, setSourceChain] = useState<'ethereum-sepolia' | 'base-sepolia' | 'arbitrum-sepolia'>('ethereum-sepolia');
@@ -80,11 +80,13 @@ export function BridgePanel() {
     isIdle;
 
   const handleStartBridge = async () => {
-    if (!canBridge || !address) return;
+    if (!canBridge || !address || !connector) return;
 
     await executeCctpBridge({
       amount,
       userAddress: address,
+      sourceChain,
+      connector,
       onStateChange: (state) => {
         setBridgeState(state);
       },
@@ -116,14 +118,14 @@ export function BridgePanel() {
     <div className="space-y-5">
       {/* Network Direction Selector */}
       <div className="bg-gray-950/40 border border-gray-800/40 rounded-2xl p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex-1 text-center">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-0">
+          <div className="flex-1 text-center w-full">
             <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Source Chain</p>
             <select
               value={sourceChain}
               onChange={(e) => setSourceChain(e.target.value as any)}
               disabled={!isIdle}
-              className="bg-gray-900 border border-gray-800 rounded-lg px-2.5 py-1 text-xs text-gray-200 font-medium focus:outline-none focus:ring-1 focus:ring-cyan-500/40"
+              className="bg-gray-900 border border-gray-800 rounded-lg px-2.5 py-1.5 text-xs text-gray-200 font-medium focus:outline-none focus:ring-1 focus:ring-cyan-500/40 w-full sm:w-auto"
             >
               <option value="ethereum-sepolia">Ethereum Sepolia</option>
               <option value="base-sepolia">Base Sepolia</option>
@@ -131,13 +133,13 @@ export function BridgePanel() {
             </select>
           </div>
           
-          <div className="w-8 h-8 rounded-full bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center mx-4 shrink-0">
+          <div className="w-8 h-8 rounded-full bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center my-1 sm:my-0 sm:mx-4 shrink-0 rotate-90 sm:rotate-0">
             <ArrowRight className="w-4 h-4 text-cyan-400" />
           </div>
 
-          <div className="flex-1 text-center">
+          <div className="flex-1 text-center w-full">
             <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Destination Chain</p>
-            <span className="text-xs font-semibold text-cyan-400 bg-cyan-950/20 border border-cyan-900/30 px-3 py-1.5 rounded-lg inline-block">
+            <span className="text-xs font-semibold text-cyan-400 bg-cyan-950/20 border border-cyan-900/30 px-3 py-1.5 rounded-lg inline-block w-full sm:w-auto">
               ⚡ Arc Testnet
             </span>
           </div>
