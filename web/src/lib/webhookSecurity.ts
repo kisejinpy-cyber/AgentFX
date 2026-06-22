@@ -54,7 +54,7 @@ export async function verifyWebhookSignature({
       const isProduction = process.env.CIRCLE_ENV === 'production';
       const baseUrl = isProduction ? 'https://api.circle.com' : 'https://api-sandbox.circle.com';
       
-      const res = await fetch(`${baseUrl}/v2/cpn/notifications/publicKey/${keyId}`, {
+      const res = await fetch(`${baseUrl}/v2/notifications/publicKey/${keyId}`, {
         headers: {
           'Authorization': `Bearer ${process.env.CIRCLE_API_KEY}`,
         },

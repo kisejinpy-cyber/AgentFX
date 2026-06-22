@@ -1,4 +1,5 @@
-import { parseUnits } from 'viem';
+import { BridgeKit } from '@circle-fin/bridge-kit';
+import { createViemAdapterFromProvider } from '@circle-fin/adapter-viem-v2';
 
 export type BridgeStep = 'IDLE' | 'BURNING' | 'ATTESTING' | 'MINTING' | 'DONE' | 'FAILED';
 
@@ -25,100 +26,103 @@ export function adjustSepoliaUSDCBalance(amount: number): string {
   return sepoliaUSDCBalance;
 }
 
-/**
- * Poll Circle Attestation API for CCTP signature
- */
-export async function pollCircleAttestation(messageHash: string): Promise<string> {
-  const sandboxUrl = `https://iris-api-sandbox.circle.com/attestations/${messageHash}`;
-  
-  // Try calling real sandbox API
-  try {
-    const response = await fetch(sandboxUrl);
-    if (response.ok) {
-      const data = await response.json();
-      if (data.status === 'complete' && data.attestation) {
-        return data.attestation;
-      }
-    }
-  } catch (error) {
-    console.warn('Sandbox attestation service poll failed, falling back to simulator:', error);
-  }
-
-  // Fallback simulator delay
-  await new Promise((resolve) => setTimeout(resolve, 3000));
-  return '0x' + Array.from({ length: 130 }, () => Math.floor(Math.random() * 16).toString(16)).join('');
-}
+const bridgeKit = new BridgeKit();
 
 /**
- * Executes a simulated or real CCTP bridge transaction from Sepolia to Arc Testnet
+ * Executes a real CCTP bridge transaction from Sepolia/Base to Arc Testnet using Bridge Kit.
  */
 export async function executeCctpBridge(options: {
   amount: string;
   userAddress: string;
+  sourceChain: 'ethereum-sepolia' | 'base-sepolia' | 'arbitrum-sepolia';
+  connector: any;
   onStateChange: (state: BridgeState) => void;
   onSuccess: () => void;
 }) {
-  const { amount, userAddress, onStateChange, onSuccess } = options;
+  const { amount, userAddress, sourceChain, connector, onStateChange, onSuccess } = options;
+
+  let sdkSourceChain = 'Ethereum_Sepolia';
+  if (sourceChain === 'base-sepolia') {
+    sdkSourceChain = 'Base_Sepolia';
+  } else if (sourceChain === 'arbitrum-sepolia') {
+    sdkSourceChain = 'Arbitrum_Sepolia';
+  }
 
   try {
-    // --- STEP 1: BURN ---
     onStateChange({
       step: 'BURNING',
-      message: `Approving and burning ${amount} USDC on Ethereum Sepolia...`,
+      message: 'Initializing Viem Adapter and preparing transaction approval...',
     });
 
-    // Simulate burn delay
-    await new Promise((resolve) => setTimeout(resolve, 3000));
-    const burnTxHash = `0x${Array.from({ length: 64 }, () =>
-      Math.floor(Math.random() * 16).toString(16)
-    ).join('')}`;
-    
-    // Simulate transaction event parse to get message hash
-    const messageHash = `0x${Array.from({ length: 64 }, () =>
-      Math.floor(Math.random() * 16).toString(16)
-    ).join('')}`;
+    const provider = await connector.getProvider();
+    const adapter = await createViemAdapterFromProvider({ provider });
 
-    // Deduct Sepolia balance
-    adjustSepoliaUSDCBalance(-parseFloat(amount));
-
-    onStateChange({
-      step: 'ATTESTING',
-      message: 'USDC burned. Polling Circle Attestation service (Ethereum Sepolia ➡️ Arc Testnet)...',
-      txHash: burnTxHash,
-      messageHash: messageHash,
+    // Wire up SDK event listeners to progress state
+    bridgeKit.on('approve', (payload) => {
+      onStateChange({
+        step: 'BURNING',
+        message: 'Approving USDC spending allowance for Circle TokenMessenger...',
+        txHash: payload.values?.txHash,
+      });
     });
 
-    // --- STEP 2: POLL ATTESTATION ---
-    const attestationSig = await pollCircleAttestation(messageHash);
-
-    onStateChange({
-      step: 'MINTING',
-      message: 'Attestation signature retrieved. Triggering receiveMessage() on Arc Testnet...',
-      txHash: burnTxHash,
-      messageHash,
-      attestation: attestationSig,
+    bridgeKit.on('burn', (payload) => {
+      onStateChange({
+        step: 'ATTESTING',
+        message: 'USDC burned. Polling Circle Attestation API for signatures (this may take up to 20s)...',
+        txHash: payload.values?.txHash,
+      });
     });
 
-    // --- STEP 3: MINT ON ARC ---
-    await new Promise((resolve) => setTimeout(resolve, 2500));
-    
-    const mintTxHash = `0x${Array.from({ length: 64 }, () =>
-      Math.floor(Math.random() * 16).toString(16)
-    ).join('')}`;
-
-    onStateChange({
-      step: 'DONE',
-      message: `Successfully bridged ${amount} USDC. Mint transaction confirmed on Arc Testnet.`,
-      txHash: mintTxHash,
+    bridgeKit.on('fetchAttestation', (payload) => {
+      if (payload.values?.state === 'success') {
+        onStateChange({
+          step: 'MINTING',
+          message: 'Attestation signature successfully retrieved. Preparing mint on Arc Testnet...',
+          attestation: payload.values?.data?.attestation,
+        });
+      } else {
+        onStateChange({
+          step: 'ATTESTING',
+          message: 'Circle Attestation pending. Waiting for validator signatures...',
+        });
+      }
     });
 
-    onSuccess();
+    bridgeKit.on('mint', (payload) => {
+      onStateChange({
+        step: 'DONE',
+        message: `Successfully bridged ${amount} USDC. Mint transaction confirmed on Arc Testnet.`,
+        txHash: payload.values?.txHash,
+      });
+    });
+
+    const result = await bridgeKit.bridge({
+      from: { adapter, chain: sdkSourceChain },
+      to: { adapter, chain: 'Arc_Testnet' },
+      amount: amount,
+    } as any);
+
+    // Remove listeners when finished to avoid leaks
+    (bridgeKit as any).removeAllListeners?.();
+
+    if (result.state === 'success') {
+      // Deduct local Sepolia balance demo balance
+      adjustSepoliaUSDCBalance(-parseFloat(amount));
+      onSuccess();
+    } else {
+      const failedStep = result.steps.find((step) => step.state === 'error');
+      throw new Error(failedStep?.error ? String(failedStep.error) : 'Bridge transaction failed');
+    }
   } catch (error: any) {
     console.error('CCTP Bridge failed:', error);
+    // Cleanup listeners
+    (bridgeKit as any).removeAllListeners?.();
+
     onStateChange({
       step: 'FAILED',
-      message: `Bridge failed: ${error?.message || 'Attestation retrieval timeout'}`,
-      error: error?.message || 'CCTP attestation failure',
+      message: `Bridge failed: ${error?.message || 'CCTP attestation failure'}`,
+      error: error?.message || 'CCTP failure',
       canRecover: true,
     });
   }

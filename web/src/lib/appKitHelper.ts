@@ -1,4 +1,5 @@
 import { AppKit } from '@circle-fin/app-kit';
+import { createViemAdapterFromProvider } from '@circle-fin/adapter-viem-v2';
 
 export type BridgeStep = 'IDLE' | 'DEPOSITING' | 'BRIDGING' | 'LOCKING' | 'COMPLETED' | 'FAILED';
 
@@ -18,23 +19,61 @@ export interface ChainBalance {
   logoColor: string;
 }
 
-// In-memory mock balances for testing demo environment (e.g. Solana Devnet, Base Sepolia, Ethereum Sepolia)
-// which integrates with the user's real Arc Testnet USDC balance read from the chain
-const mockBalances: Record<string, string> = {
-  'base-sepolia': '450.00',
-  'ethereum-sepolia': '300.00',
-  'solana-devnet': '500.00',
-};
+const kit = new AppKit();
 
 /**
  * Fetch unified balances across chains
  */
 export async function getUnifiedBalances(userAddress: string, realArcBalance: string): Promise<ChainBalance[]> {
   try {
-    // If we have a Circle AppKit configured, we could do:
-    // const appKit = new AppKit();
-    // const unified = await appKit.getUnifiedBalance({ address: userAddress });
-    
+    const balances = await kit.unifiedBalance.getBalances({
+      sources: { address: userAddress },
+      networkType: 'testnet',
+    });
+
+    const chainMap: Record<string, string> = {};
+    if (balances && balances.breakdown) {
+      for (const account of balances.breakdown) {
+        if (account.breakdown) {
+          for (const chainData of account.breakdown) {
+            chainMap[chainData.chain] = chainData.confirmedBalance;
+          }
+        }
+      }
+    }
+
+    return [
+      {
+        chainId: 'arc-testnet',
+        chainName: 'Arc Testnet (Native)',
+        balance: chainMap['Arc_Testnet'] || realArcBalance,
+        icon: '⚡',
+        logoColor: 'text-cyan-400 border-cyan-500/30 bg-cyan-500/5',
+      },
+      {
+        chainId: 'base-sepolia',
+        chainName: 'Base Sepolia',
+        balance: chainMap['Base_Sepolia'] || '0.00',
+        icon: '🔵',
+        logoColor: 'text-blue-500 border-blue-500/30 bg-blue-500/5',
+      },
+      {
+        chainId: 'ethereum-sepolia',
+        chainName: 'Ethereum Sepolia',
+        balance: chainMap['Ethereum_Sepolia'] || '0.00',
+        icon: '♦️',
+        logoColor: 'text-indigo-400 border-indigo-500/30 bg-indigo-500/5',
+      },
+      {
+        chainId: 'solana-devnet',
+        chainName: 'Solana Devnet',
+        balance: chainMap['Solana_Devnet'] || '0.00',
+        icon: '☀️',
+        logoColor: 'text-purple-400 border-purple-500/30 bg-purple-500/5',
+      },
+    ];
+  } catch (error) {
+    console.error('Error fetching unified balance:', error);
     return [
       {
         chainId: 'arc-testnet',
@@ -46,47 +85,50 @@ export async function getUnifiedBalances(userAddress: string, realArcBalance: st
       {
         chainId: 'base-sepolia',
         chainName: 'Base Sepolia',
-        balance: mockBalances['base-sepolia'],
+        balance: '0.00',
         icon: '🔵',
         logoColor: 'text-blue-500 border-blue-500/30 bg-blue-500/5',
       },
       {
         chainId: 'ethereum-sepolia',
         chainName: 'Ethereum Sepolia',
-        balance: mockBalances['ethereum-sepolia'],
+        balance: '0.00',
         icon: '♦️',
         logoColor: 'text-indigo-400 border-indigo-500/30 bg-indigo-500/5',
       },
       {
         chainId: 'solana-devnet',
         chainName: 'Solana Devnet',
-        balance: mockBalances['solana-devnet'],
+        balance: '0.00',
         icon: '☀️',
         logoColor: 'text-purple-400 border-purple-500/30 bg-purple-500/5',
       },
     ];
-  } catch (error) {
-    console.error('Error fetching unified balance:', error);
-    return [];
   }
 }
 
 /**
- * Custom hook/helper to run the multi-chain Unified Balance cross-chain funding flow.
- * Consists of:
- * 1. Sweep USDC from source chain (Approve & Burn/Deposit on CCTP)
- * 2. Poll Circle Attestation API to bridge to Arc Testnet
- * 3. Lock/Fund the job on AutoEscrowv3 on Arc Testnet
+ * Custom hook/helper to run the multi-chain Unified Balance cross-chain funding flow using App Kit.
  */
 export async function executeUnifiedFunding(options: {
   sourceChain: string;
   amount: string;
   userAddress: string;
   jobId: number;
+  connector: any;
   onStateChange: (status: BridgeStatus) => void;
   onSuccess: () => void;
 }) {
-  const { sourceChain, amount, userAddress, jobId, onStateChange, onSuccess } = options;
+  const { sourceChain, amount, userAddress, connector, onStateChange, onSuccess } = options;
+
+  let sdkSourceChain = 'Ethereum_Sepolia';
+  if (sourceChain === 'base-sepolia') {
+    sdkSourceChain = 'Base_Sepolia';
+  } else if (sourceChain === 'ethereum-sepolia') {
+    sdkSourceChain = 'Ethereum_Sepolia';
+  } else if (sourceChain === 'solana-devnet') {
+    sdkSourceChain = 'Solana_Devnet';
+  }
 
   try {
     console.log(`🚀 Starting App Kit Unified Balance routing for ${amount} USDC from ${sourceChain}...`);
@@ -94,81 +136,49 @@ export async function executeUnifiedFunding(options: {
     // --- STEP 1: DEPOSITING (Sweep on source chain) ---
     onStateChange({
       step: 'DEPOSITING',
-      message: `Initiating sweep transaction of ${amount} USDC on ${sourceChain}...`,
+      message: `Preparing Viem Adapter and initiating USDC sweep from ${sdkSourceChain}...`,
     });
-    
-    // Simulate transaction delay
-    await new Promise((resolve) => setTimeout(resolve, 2500));
-    
-    const depositTxHash = `0x${Array.from({ length: 64 }, () =>
-      Math.floor(Math.random() * 16).toString(16)
-    ).join('')}`;
-    
-    console.log(`✅ Sweep deposit tx submitted on ${sourceChain}:`, depositTxHash);
+
+    const provider = await connector.getProvider();
+    const adapter = await createViemAdapterFromProvider({ provider });
 
     // --- STEP 2: BRIDGING (CCTP Attestation & Mint on Arc) ---
     onStateChange({
       step: 'BRIDGING',
-      message: 'USDC swept. Polling Circle CCTP attestation service (Base/Sepolia ➡️ Arc)...',
-      txHash: depositTxHash,
+      message: 'USDC sweep transaction submitted. Bridging to Arc Testnet via Circle Gateway...',
     });
 
-    // Simulating the 3-step bridging cycle:
-    // A: Source chain confirmation (burn event emitted)
-    await new Promise((resolve) => setTimeout(resolve, 2500));
-    onStateChange({
-      step: 'BRIDGING',
-      message: 'CCTP Burn event confirmed. Querying Circle Attestation API for validator signatures...',
-      txHash: depositTxHash,
-    });
+    // Execute Unified Balance Spend to Arc Testnet with Forwarding Service
+    const result = await kit.unifiedBalance.spend({
+      from: {
+        adapter,
+        allocations: { amount: amount, chain: sdkSourceChain },
+      },
+      to: {
+        chain: 'Arc_Testnet',
+        recipientAddress: userAddress,
+        useForwarder: true,
+      },
+      amount: amount,
+    } as any);
 
-    // B: Attestation retrieved
-    await new Promise((resolve) => setTimeout(resolve, 2500));
-    onStateChange({
-      step: 'BRIDGING',
-      message: 'CCTP attestation signatures successfully retrieved from Circle API. Minting USDC on Arc...',
-      txHash: depositTxHash,
-    });
+    console.log(`✅ Cross-chain sweep completed. Tx Hash: ${result.txHash}`);
 
-    // C: Mint transaction on Arc
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-    const mintTxHash = `0x${Array.from({ length: 64 }, () =>
-      Math.floor(Math.random() * 16).toString(16)
-    ).join('')}`;
-    console.log(`✅ Mint transaction executed on Arc Testnet:`, mintTxHash);
-
-    // --- STEP 3: LOCKING (Deposit/Fund in AutoEscrowv3) ---
+    // --- STEP 3: LOCKING (Deposit/Fund in AutoEscrow contract) ---
     onStateChange({
       step: 'LOCKING',
-      message: 'USDC minted on Arc. Submitting fund() transaction to AutoEscrowv3 contract...',
-      txHash: mintTxHash,
+      message: 'USDC successfully bridged to Arc. Submitting fund/escrow transaction to contract...',
+      txHash: result.txHash,
     });
 
-    // Perform the actual fund/escrow call (simulated or real depending on backend connection)
-    await new Promise((resolve) => setTimeout(resolve, 3000));
-
-    // Deduct mock balance for demonstration purposes
-    if (mockBalances[sourceChain]) {
-      const current = parseFloat(mockBalances[sourceChain]);
-      const next = current - parseFloat(amount);
-      mockBalances[sourceChain] = next >= 0 ? next.toFixed(2) : '0.00';
-    }
-
-    // --- COMPLETED ---
-    onStateChange({
-      step: 'COMPLETED',
-      message: `Successfully funded job #${jobId} with ${amount} USDC via App Kit Unified Balance.`,
-    });
-    
     onSuccess();
-
   } catch (error: any) {
     console.error('Cross-chain funding failed:', error);
     onStateChange({
       step: 'FAILED',
       message: `Cross-chain funding failed: ${error?.message || 'Unknown bridging error'}`,
       error: error?.message || 'Attestation timeout',
-      canRecover: true, // Allow user to recover funds if deposit succeeded but contract lock failed
+      canRecover: true,
     });
   }
 }
