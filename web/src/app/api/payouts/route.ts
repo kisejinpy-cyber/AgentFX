@@ -5,6 +5,7 @@ import crypto from 'crypto';
 import { encrypt, decrypt } from '@/lib/encryption';
 import { isRateLimited, getClientIp } from '@/lib/rateLimit';
 import { trackMetric } from '@/app/api/metrics/route';
+import { autoFundGasAndUSDC } from '@/lib/circleUserWallets';
 
 const BANK_DB_PATH = path.join(process.cwd(), 'src/lib/bank_accounts_db.json');
 const PAYOUT_DB_PATH = path.join(process.cwd(), 'src/lib/payouts_db.json');
@@ -243,6 +244,17 @@ export async function POST(req: NextRequest) {
       writeDb(PAYOUT_DB_PATH, payouts);
 
       return NextResponse.json({ success: true, payout: newPayout });
+    }
+
+    if (action === 'requestFaucet') {
+      const { userAddress } = body;
+      if (!userAddress || typeof userAddress !== 'string' || !/^0x[a-fA-F0-9]{40}$/.test(userAddress.trim())) {
+        return NextResponse.json({ error: 'Invalid or missing userAddress' }, { status: 400 });
+      }
+
+      // Execute faucet transaction
+      const { gasTxHash, usdcTxHash } = await autoFundGasAndUSDC(userAddress.trim(), true);
+      return NextResponse.json({ success: true, gasTxHash, usdcTxHash });
     }
 
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 });

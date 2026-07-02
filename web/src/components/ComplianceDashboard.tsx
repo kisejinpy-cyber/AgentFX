@@ -136,17 +136,22 @@ export function ComplianceDashboard() {
           </div>
 
           <form onSubmit={handleScreenAddress} className="space-y-3">
-            <div className="space-y-1">
-              <label className="block text-[10px] font-medium text-gray-500 uppercase tracking-wider">
-                Blockchain Address
-              </label>
+            <div className="space-y-1 group relative">
+              <div className="flex justify-between items-center mb-1">
+                <label className="block text-[10px] font-medium text-gray-500 uppercase tracking-wider">
+                  Blockchain Address
+                </label>
+                <span className="text-[8px] text-cyan-500/80 opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 transition-opacity duration-200">
+                  Verify sanctions & freeze status for any EVM wallet
+                </span>
+              </div>
               <input
                 type="text"
                 required
                 value={screenAddr}
                 onChange={(e) => setScreenAddr(e.target.value)}
                 className="w-full bg-gray-950/50 border border-gray-800/60 rounded-xl px-3.5 py-2 text-xs font-mono text-gray-300 focus:outline-none focus:ring-1 focus:ring-cyan-500/40 focus:border-cyan-500/30 transition-all"
-                placeholder="0x..."
+                placeholder="e.g. 0x1087E71CD83101adF154d8215522EadA51Bf891E"
               />
             </div>
 
@@ -227,13 +232,16 @@ export function ComplianceDashboard() {
                 Official transaction block logs for compliance reviews.
               </p>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 group relative">
+              <span className="text-[8px] text-cyan-500/80 opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 transition-opacity duration-200 absolute -bottom-5 right-0 whitespace-nowrap bg-gray-950/90 border border-gray-800/80 rounded px-1.5 py-0.5 z-10">
+                Filter logs by target wallet address
+              </span>
               <input
                 type="text"
                 value={searchAddr}
                 onChange={(e) => setSearchAddr(e.target.value)}
                 className="bg-gray-950/40 border border-gray-800/40 rounded-lg px-3 py-1.5 text-xs text-gray-400 focus:outline-none focus:ring-1 focus:ring-cyan-500/40 placeholder-gray-700 w-44"
-                placeholder="Search logs..."
+                placeholder="e.g. 0x71c... or 0x9999"
               />
               <button
                 onClick={fetchLogs}
@@ -247,8 +255,14 @@ export function ComplianceDashboard() {
           </div>
 
           {filteredLogs.length === 0 ? (
-            <div className="py-12 text-center text-xs text-gray-600">
-              No compliance logs found matching query.
+            <div className="flex flex-col items-center justify-center py-12 px-4 gap-3 border border-dashed border-gray-850 rounded-xl bg-gray-950/20 text-center animate-fade-in">
+              <ShieldCheck className="w-6 h-6 text-gray-700" />
+              <div>
+                <p className="text-xs text-gray-300 font-semibold">Audit Trails Clean</p>
+                <p className="text-[10px] text-gray-500 mt-1 leading-relaxed max-w-[280px] mx-auto font-sans">
+                  No flagged compliance checks matching your query. All screened transactors are compliant under the current policy set.
+                </p>
+              </div>
             </div>
           ) : (
             <div className="overflow-x-auto">

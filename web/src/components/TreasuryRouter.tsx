@@ -124,25 +124,28 @@ function RuleCard({
         {rule.type === 'threshold-sweep' && (
           <>
             <div className="flex items-center justify-between text-xs">
-              <span className="text-gray-500">When balance exceeds</span>
+              <span className="text-gray-500" title="The minimum balance required before triggering the sweep.">When balance exceeds</span>
               <div className="flex items-center gap-1">
                 <input
                   type="text"
                   value={rule.config.threshold || ''}
                   onChange={(e) => onUpdate({ config: { ...rule.config, threshold: e.target.value } })}
                   className="w-20 bg-gray-950/50 border border-gray-800/40 rounded px-2 py-1 text-xs font-mono text-gray-200 text-right focus:outline-none focus:ring-1 focus:ring-cyan-500/40"
+                  placeholder="e.g. 500.00"
+                  title="Balance threshold in USDC to trigger automated sweep (e.g., 500.00)"
                 />
                 <span className="text-gray-500">USDC</span>
               </div>
             </div>
             <div className="flex items-center justify-between text-xs">
-              <span className="text-gray-500">Sweep excess to</span>
+              <span className="text-gray-500" title="The target smart contract vault or yield repository.">Sweep excess to</span>
               <input
                 type="text"
                 value={rule.config.target || ''}
                 onChange={(e) => onUpdate({ config: { ...rule.config, target: e.target.value } })}
                 className="w-32 bg-gray-950/50 border border-gray-800/40 rounded px-2 py-1 text-xs font-mono text-gray-200 text-right focus:outline-none focus:ring-1 focus:ring-cyan-500/40"
-                placeholder="0x... or USYC vault"
+                placeholder="e.g. USYC Vault"
+                title="Target address or vault (e.g. 0x1087E7...)"
               />
             </div>
           </>
@@ -150,13 +153,15 @@ function RuleCard({
         {rule.type === 'scheduled-payout' && (
           <>
             <div className="flex items-center justify-between text-xs">
-              <span className="text-gray-500">Payout amount</span>
+              <span className="text-gray-500" title="The scheduled transfer quantity in USDC.">Payout amount</span>
               <div className="flex items-center gap-1">
                 <input
                   type="text"
                   value={rule.config.amount || ''}
                   onChange={(e) => onUpdate({ config: { ...rule.config, amount: e.target.value } })}
                   className="w-20 bg-gray-950/50 border border-gray-800/40 rounded px-2 py-1 text-xs font-mono text-gray-200 text-right focus:outline-none focus:ring-1 focus:ring-cyan-500/40"
+                  placeholder="e.g. 100.00"
+                  title="Stablecoin volume to pay out per period run (e.g., 100.00)"
                 />
                 <span className="text-gray-500">USDC</span>
               </div>
@@ -167,6 +172,7 @@ function RuleCard({
                 value={rule.config.schedule || 'weekly'}
                 onChange={(e) => onUpdate({ config: { ...rule.config, schedule: e.target.value } })}
                 className="bg-gray-950/50 border border-gray-800/40 rounded px-2 py-1 text-xs text-gray-200 focus:outline-none focus:ring-1 focus:ring-cyan-500/40"
+                title="Payout execution frequency interval"
               >
                 <option value="daily">Daily</option>
                 <option value="weekly">Weekly</option>
@@ -174,26 +180,29 @@ function RuleCard({
               </select>
             </div>
             <div className="flex items-center justify-between text-xs">
-              <span className="text-gray-500">Recipient</span>
+              <span className="text-gray-500" title="The target wallet recipient.">Recipient</span>
               <input
                 type="text"
                 value={rule.config.target || ''}
                 onChange={(e) => onUpdate({ config: { ...rule.config, target: e.target.value } })}
                 className="w-32 bg-gray-950/50 border border-gray-800/40 rounded px-2 py-1 text-xs font-mono text-gray-200 text-right focus:outline-none focus:ring-1 focus:ring-cyan-500/40"
-                placeholder="0x..."
+                placeholder="e.g. 0x1087..."
+                title="Target wallet recipient (e.g. 0x1087E7...)"
               />
             </div>
           </>
         )}
         {rule.type === 'reserve-topup' && (
           <div className="flex items-center justify-between text-xs">
-            <span className="text-gray-500">Alert when below</span>
+            <span className="text-gray-500" title="Triggers warning if cash reserve falls below this.">Alert when below</span>
             <div className="flex items-center gap-1">
               <input
                 type="text"
                 value={rule.config.threshold || ''}
                 onChange={(e) => onUpdate({ config: { ...rule.config, threshold: e.target.value } })}
                 className="w-20 bg-gray-950/50 border border-gray-800/40 rounded px-2 py-1 text-xs font-mono text-gray-200 text-right focus:outline-none focus:ring-1 focus:ring-cyan-500/40"
+                placeholder="e.g. 50.00"
+                title="Alert notification floor reserve size in USDC (e.g. 50.00)"
               />
               <span className="text-gray-500">USDC</span>
             </div>
@@ -408,11 +417,17 @@ function ExecutePanel() {
         {/* Deposit/Sweep/Redeem Controls */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2">
           {/* Deposit USDC form */}
-          <div className="space-y-1.5">
+          <div className="space-y-1.5 group relative">
+            <div className="flex justify-between items-center text-[9px]">
+              <span className="text-gray-500">Deposit USDC</span>
+              <span className="text-cyan-500/80 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-200">
+                Wraps USDC into yield-bearing USYC shares
+              </span>
+            </div>
             <input type="text" inputMode="decimal" value={amount}
               onChange={(e) => { if (/^\d*\.?\d{0,6}$/.test(e.target.value) || e.target.value === '') setAmount(e.target.value); }}
               className="w-full bg-[var(--bg-input)] border border-gray-800/60 rounded-lg px-2.5 py-1.5 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-cyan-500/40 placeholder-gray-700"
-              placeholder="Amount to deposit" />
+              placeholder="e.g. 15.00" />
             <button onClick={handleDeposit} disabled={!canDeposit}
               className={`w-full py-1.5 rounded-lg text-[10px] font-semibold transition-all flex items-center justify-center gap-1
                 ${canDeposit ? 'bg-blue-500/10 text-blue-400 border border-blue-500/30 hover:bg-blue-500/20' : 'bg-gray-800/40 text-gray-600 border border-gray-800/30 cursor-not-allowed'}`}>
@@ -422,11 +437,17 @@ function ExecutePanel() {
           </div>
 
           {/* Redeem USYC shares form */}
-          <div className="space-y-1.5">
+          <div className="space-y-1.5 group relative">
+            <div className="flex justify-between items-center text-[9px]">
+              <span className="text-gray-500">Redeem USYC</span>
+              <span className="text-cyan-500/80 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-200">
+                Unwraps yield shares back to liquid USDC
+              </span>
+            </div>
             <input type="text" inputMode="decimal" value={redeemAmount}
               onChange={(e) => { if (/^\d*\.?\d{0,6}$/.test(e.target.value) || e.target.value === '') setRedeemAmount(e.target.value); }}
               className="w-full bg-[var(--bg-input)] border border-gray-800/60 rounded-lg px-2.5 py-1.5 text-xs font-mono focus:outline-none focus:ring-1 focus:ring-cyan-500/40 placeholder-gray-700"
-              placeholder="Shares to redeem" />
+              placeholder="e.g. 5.00" />
             <button onClick={handleRedeem} disabled={!canRedeem}
               className={`w-full py-1.5 rounded-lg text-[10px] font-semibold transition-all flex items-center justify-center gap-1
                 ${canRedeem ? 'bg-purple-500/10 text-purple-400 border border-purple-500/30 hover:bg-purple-500/20' : 'bg-gray-800/40 text-gray-600 border border-gray-800/30 cursor-not-allowed'}`}>
@@ -506,10 +527,14 @@ export function TreasuryRouter() {
       {/* Rules List */}
       <div className="p-5 space-y-3">
         {rules.length === 0 ? (
-          <div className="text-center py-8">
-            <Settings className="w-8 h-8 text-gray-700 mx-auto mb-2" />
-            <p className="text-sm text-gray-500">No policies configured</p>
-            <p className="text-xs text-gray-600">Add a rule to automate treasury operations</p>
+          <div className="flex flex-col items-center justify-center py-10 px-4 gap-3 border border-dashed border-gray-850 rounded-xl bg-gray-950/20 text-center animate-fade-in">
+            <Settings className="w-8 h-8 text-cyan-500/80 animate-spin" style={{ animationDuration: '6s' }} />
+            <div>
+              <p className="text-xs text-gray-300 font-semibold">No Policies Active</p>
+              <p className="text-[10px] text-gray-500 mt-1 leading-relaxed max-w-[280px] mx-auto font-sans">
+                Create automation rules above to sweep excess treasury balances, pay salaries on schedules, or configure reserve bounds.
+              </p>
+            </div>
           </div>
         ) : (
           rules.map(rule => (

@@ -15,6 +15,7 @@ import {
   AlertTriangle,
   Repeat,
   Building,
+  HelpCircle,
 } from 'lucide-react';
 import {
   USDC_ADDRESS,
@@ -108,9 +109,13 @@ function TransferTab() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <div className="flex justify-between mb-1.5">
-          <label className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">Amount</label>
+      {/* Amount input */}
+      <div className="group relative">
+        <div className="flex justify-between mb-1.5 items-center">
+          <div className="flex items-center gap-1.5">
+            <label className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">Amount</label>
+            <HelpCircle className="w-3.5 h-3.5 text-gray-500 hover:text-cyan-400 cursor-help transition-colors" />
+          </div>
           {isConnected && (
             <button onClick={() => balance && setAmount(formatUnits(balance as bigint, USDC_DECIMALS))}
               className="text-[10px] text-cyan-500 hover:text-cyan-400 transition-colors font-medium">
@@ -123,18 +128,33 @@ function TransferTab() {
             onChange={(e) => { if (/^\d*\.?\d{0,6}$/.test(e.target.value) || e.target.value === '') setAmount(e.target.value); }}
             className={`w-full bg-[var(--bg-input)] border rounded-xl px-4 py-3 text-lg font-mono focus:outline-none focus:ring-2 transition-all placeholder-gray-700
               ${hasInsufficient ? 'border-red-500/60 focus:ring-red-500/40' : 'border-gray-800/60 focus:ring-cyan-500/40'}`}
-            placeholder="0.00" />
+            placeholder="0.00 (e.g. 100.00)" />
           <div className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-bold text-cyan-500 bg-cyan-950/40 px-2 py-0.5 rounded">USDC</div>
+        </div>
+        <div className="mt-1 flex justify-between items-center text-[9px] text-gray-500">
+          <span>Min: 0.000001 USDC | Decimals: 6</span>
+          <span className="text-cyan-500/80 opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 transition-opacity duration-200">
+            Enter the amount of USDC to send on Arc Testnet
+          </span>
         </div>
         {hasInsufficient && <p className="text-xs text-red-400 mt-1.5 flex items-center gap-1"><AlertTriangle className="w-3 h-3" />Insufficient balance</p>}
       </div>
 
-      <div>
-        <label className="block text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1.5">Recipient</label>
+      {/* Recipient input */}
+      <div className="group relative">
+        <div className="flex items-center justify-between mb-1.5">
+          <div className="flex items-center gap-1.5">
+            <label className="block text-[10px] font-medium text-gray-500 uppercase tracking-wider">Recipient</label>
+            <HelpCircle className="w-3.5 h-3.5 text-gray-500 hover:text-cyan-400 cursor-help transition-colors" />
+          </div>
+          <span className="text-[9px] text-cyan-500/80 opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 transition-opacity duration-200">
+            Target EVM address to receive your USDC transfer
+          </span>
+        </div>
         <input type="text" value={recipient} onChange={(e) => setRecipient(e.target.value.trim())}
           className={`w-full bg-[var(--bg-input)] border rounded-xl px-4 py-2.5 text-sm font-mono focus:outline-none focus:ring-2 transition-all placeholder-gray-700
             ${recipient && !recipientValid ? 'border-red-500/60 focus:ring-red-500/40' : 'border-gray-800/60 focus:ring-cyan-500/40'}`}
-          placeholder="0x..." />
+          placeholder="e.g. 0x1087E71CD83101adF154d8215522EadA51Bf891E" />
         {recipient && !recipientValid && <p className="text-xs text-red-400 mt-1 flex items-center gap-1"><AlertTriangle className="w-3 h-3" />Invalid address</p>}
       </div>
 
@@ -299,7 +319,15 @@ function OfframpTab() {
         {loading ? (
           <div className="text-xs text-gray-500 py-4 text-center">Loading payouts history...</div>
         ) : payouts.length === 0 ? (
-          <div className="text-xs text-gray-650 py-6 text-center font-sans">No recent bank payouts.</div>
+          <div className="flex flex-col items-center justify-center py-8 px-4 gap-2.5 border border-dashed border-gray-850 rounded-xl bg-gray-950/20 text-center animate-fade-in">
+            <Clock className="w-6 h-6 text-gray-700" />
+            <div>
+              <p className="text-[11px] text-gray-400 font-semibold">No Payouts Logged</p>
+              <p className="text-[9px] text-gray-650 mt-0.5 leading-relaxed max-w-[260px] mx-auto font-sans">
+                Off-ramp payouts will appear here automatically as settled deliverables are transferred to USD fiat.
+              </p>
+            </div>
+          </div>
         ) : (
           <div className="space-y-2.5">
             {payouts.map((payout) => (

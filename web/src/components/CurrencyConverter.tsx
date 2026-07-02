@@ -103,10 +103,15 @@ export function CurrencyConverter() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-center relative">
         {/* Source Input */}
-        <div className="bg-gray-950/40 border border-gray-800/60 rounded-xl p-3.5 flex flex-col gap-1">
-          <span className="text-[10px] text-gray-500 font-semibold uppercase tracking-wider">
-            {isUsdcToEurc ? 'You Send' : 'You Receive'}
-          </span>
+        <div className="bg-gray-950/40 border border-gray-800/60 rounded-xl p-3.5 flex flex-col gap-1 group relative">
+          <div className="flex justify-between items-center mb-1">
+            <span className="text-[10px] text-gray-500 font-semibold uppercase tracking-wider">
+              {isUsdcToEurc ? 'You Send' : 'You Receive'}
+            </span>
+            <span className="text-[8px] text-cyan-500/80 opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 transition-opacity duration-200">
+              Input transfer quantity (decimals allowed)
+            </span>
+          </div>
           <div className="flex items-center justify-between">
             <input
               type="text"
@@ -114,7 +119,7 @@ export function CurrencyConverter() {
               value={usdcVal}
               onChange={(e) => handleInputChange(e.target.value)}
               className="bg-transparent border-none text-base font-mono font-bold text-gray-100 focus:outline-none w-2/3 p-0"
-              placeholder="0.00"
+              placeholder="e.g. 150.00"
             />
             <div className="flex items-center gap-1.5 bg-gray-900/80 px-2.5 py-1 rounded-lg border border-gray-800/60">
               {isUsdcToEurc ? (
@@ -143,10 +148,15 @@ export function CurrencyConverter() {
         </div>
 
         {/* Target Output */}
-        <div className="bg-gray-950/40 border border-gray-800/60 rounded-xl p-3.5 flex flex-col gap-1">
-          <span className="text-[10px] text-gray-500 font-semibold uppercase tracking-wider">
-            {isUsdcToEurc ? 'Recipient Receives' : 'Recipient Sends'}
-          </span>
+        <div className="bg-gray-950/40 border border-gray-800/60 rounded-xl p-3.5 flex flex-col gap-1 group relative">
+          <div className="flex justify-between items-center mb-1">
+            <span className="text-[10px] text-gray-500 font-semibold uppercase tracking-wider">
+              {isUsdcToEurc ? 'Recipient Receives' : 'Recipient Sends'}
+            </span>
+            <span className="text-[8px] text-cyan-500/80 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+              Auto-calculated payout via Chainlink FX oracles
+            </span>
+          </div>
           <div className="flex items-center justify-between">
             <span className="text-base font-mono font-bold text-gray-400">
               {Number(eurcVal) ? Number(eurcVal).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 }) : '0.00'}

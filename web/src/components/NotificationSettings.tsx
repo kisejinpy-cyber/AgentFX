@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Mail, MessageSquare, Bell, RefreshCw, Check, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { Mail, MessageSquare, Bell, RefreshCw, Check, AlertTriangle, ShieldCheck, HelpCircle } from 'lucide-react';
 import { useToast } from '@/components/ui/Toast';
 
 // Inline Slack icon definition since it's not exported by lucide-react version
@@ -106,13 +106,23 @@ export function NotificationSettings() {
                 />
               </div>
               {emailEnabled && (
-                <input
-                  type="email"
-                  value={emailAddress}
-                  onChange={(e) => setEmailAddress(e.target.value)}
-                  className="w-full bg-[var(--bg-input)] border border-gray-800/60 rounded-lg px-3 py-1.5 text-xs text-gray-300 focus:outline-none focus:ring-1 focus:ring-cyan-500/30 transition-all"
-                  placeholder="Enter email address"
-                />
+                <div className="group relative space-y-1 animate-fade-in">
+                  <div className="flex justify-between items-center text-[10px]">
+                    <span className="text-gray-500 font-medium flex items-center gap-1">
+                      Email Address <HelpCircle className="w-3 h-3 text-gray-500 cursor-help" />
+                    </span>
+                    <span className="text-cyan-500/80 opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 transition-opacity duration-200">
+                      Receives daily summaries and escrow status alerts
+                    </span>
+                  </div>
+                  <input
+                    type="email"
+                    value={emailAddress}
+                    onChange={(e) => setEmailAddress(e.target.value)}
+                    className="w-full bg-[var(--bg-input)] border border-gray-800/60 rounded-lg px-3 py-1.5 text-xs text-gray-300 focus:outline-none focus:ring-1 focus:ring-cyan-500/30 transition-all"
+                    placeholder="e.g. treasury@enterprise.com"
+                  />
+                </div>
               )}
             </div>
 
@@ -136,13 +146,23 @@ export function NotificationSettings() {
                 />
               </div>
               {slackEnabled && (
-                <input
-                  type="text"
-                  value={slackWebhook}
-                  onChange={(e) => setSlackWebhook(e.target.value)}
-                  className="w-full bg-[var(--bg-input)] border border-gray-800/60 rounded-lg px-3 py-1.5 text-xs text-gray-300 focus:outline-none focus:ring-1 focus:ring-cyan-500/30 transition-all font-mono"
-                  placeholder="https://hooks.slack.com/services/..."
-                />
+                <div className="group relative space-y-1 animate-fade-in">
+                  <div className="flex justify-between items-center text-[10px]">
+                    <span className="text-gray-500 font-medium flex items-center gap-1">
+                      Webhook URL <HelpCircle className="w-3 h-3 text-gray-500 cursor-help" />
+                    </span>
+                    <span className="text-cyan-500/80 opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 transition-opacity duration-200">
+                      Incoming Slack webhook url for chat automation
+                    </span>
+                  </div>
+                  <input
+                    type="text"
+                    value={slackWebhook}
+                    onChange={(e) => setSlackWebhook(e.target.value)}
+                    className="w-full bg-[var(--bg-input)] border border-gray-800/60 rounded-lg px-3 py-1.5 text-xs text-gray-300 focus:outline-none focus:ring-1 focus:ring-cyan-500/30 transition-all font-mono"
+                    placeholder="https://hooks.slack.com/services/T00/B00/XXXX"
+                  />
+                </div>
               )}
             </div>
 
@@ -166,13 +186,23 @@ export function NotificationSettings() {
                 />
               </div>
               {smsEnabled && (
-                <input
-                  type="text"
-                  value={phoneNumber}
-                  onChange={(e) => setPhoneNumber(e.target.value)}
-                  className="w-full bg-[var(--bg-input)] border border-gray-800/60 rounded-lg px-3 py-1.5 text-xs text-gray-300 focus:outline-none focus:ring-1 focus:ring-cyan-500/30 transition-all"
-                  placeholder="+1 (555) 000-0000"
-                />
+                <div className="group relative space-y-1 animate-fade-in">
+                  <div className="flex justify-between items-center text-[10px]">
+                    <span className="text-gray-500 font-medium flex items-center gap-1">
+                      Phone Number <HelpCircle className="w-3 h-3 text-gray-500 cursor-help" />
+                    </span>
+                    <span className="text-cyan-500/80 opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 transition-opacity duration-200">
+                      Receives high-severity settlement & multi-sig SMS
+                    </span>
+                  </div>
+                  <input
+                    type="text"
+                    value={phoneNumber}
+                    onChange={(e) => setPhoneNumber(e.target.value)}
+                    className="w-full bg-[var(--bg-input)] border border-gray-800/60 rounded-lg px-3 py-1.5 text-xs text-gray-300 focus:outline-none focus:ring-1 focus:ring-cyan-500/30 transition-all font-mono"
+                    placeholder="e.g. +1 (555) 019-2834"
+                  />
+                </div>
               )}
             </div>
           </div>
@@ -243,8 +273,14 @@ export function NotificationSettings() {
         </div>
 
         {feed.length === 0 ? (
-          <div className="py-8 text-center text-xs text-gray-600">
-            No live events captured yet. Deploy jobs or settle escrows to trigger alerts!
+          <div className="flex flex-col items-center justify-center py-10 px-4 gap-3 border border-dashed border-gray-850 rounded-xl bg-gray-950/20 text-center animate-fade-in">
+            <Bell className="w-6 h-6 text-gray-700 animate-bounce" style={{ animationDuration: '3s' }} />
+            <div>
+              <p className="text-xs text-gray-300 font-semibold">Feed Silent</p>
+              <p className="text-[10px] text-gray-500 mt-1 leading-relaxed max-w-[280px] mx-auto font-sans">
+                No webhooks or event signals captured yet. Deploy new escrows, triggers, or policies to see real-time dispatches.
+              </p>
+            </div>
           </div>
         ) : (
           <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">

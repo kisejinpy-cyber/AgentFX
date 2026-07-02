@@ -211,9 +211,14 @@ export function GatewayFunding() {
           </p>
 
           {/* Top-up Form */}
-          <div className="space-y-2 pt-2 border-t border-gray-800/40">
+          <div className="space-y-2 pt-2 border-t border-gray-800/40 group relative">
             <div className="flex justify-between items-center text-[10px]">
-              <span className="text-gray-500">Deposit amount</span>
+              <div className="flex items-center gap-2">
+                <span className="text-gray-500 uppercase tracking-wider font-medium">Deposit Amount</span>
+                <span className="text-[8px] text-cyan-500/80 opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 transition-opacity duration-200">
+                  Min: 0.0001, Max: 10 USDC (4 decimals max)
+                </span>
+              </div>
               <span className="text-gray-600 font-mono">Wallet: ${formattedArcBalance} USDC</span>
             </div>
             <div className="flex gap-2">
@@ -221,7 +226,7 @@ export function GatewayFunding() {
                 <input
                   type="text"
                   inputMode="decimal"
-                  placeholder="0.05"
+                  placeholder="e.g. 0.50 (Allocates 50,000 requests)"
                   value={topupAmount}
                   onChange={(e) => {
                     if (/^\d*\.?\d{0,4}$/.test(e.target.value) || e.target.value === '') {

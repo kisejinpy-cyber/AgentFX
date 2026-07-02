@@ -233,10 +233,15 @@ export function BankLinking({ onRefreshHistory }: BankLinkingProps) {
           {wizardStep === 1 && (
             <form onSubmit={handleLinkBank} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="block text-[10px] font-medium text-gray-500 uppercase tracking-wider">
-                    Account Nickname
-                  </label>
+                <div className="space-y-1 group relative">
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="flex items-center gap-1 block text-[10px] font-medium text-gray-500 uppercase tracking-wider">
+                      Account Nickname <HelpCircle className="w-3 h-3 text-gray-500 cursor-help" />
+                    </label>
+                    <span className="text-[8px] text-cyan-500/80 opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 transition-opacity duration-200">
+                      Local label for quick selection
+                    </span>
+                  </div>
                   <input
                     type="text"
                     required
@@ -247,10 +252,15 @@ export function BankLinking({ onRefreshHistory }: BankLinkingProps) {
                   />
                 </div>
 
-                <div className="space-y-1">
-                  <label className="block text-[10px] font-medium text-gray-500 uppercase tracking-wider">
-                    Bank Name
-                  </label>
+                <div className="space-y-1 group relative">
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="flex items-center gap-1 block text-[10px] font-medium text-gray-500 uppercase tracking-wider">
+                      Bank Name <HelpCircle className="w-3 h-3 text-gray-500 cursor-help" />
+                    </label>
+                    <span className="text-[8px] text-cyan-500/80 opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 transition-opacity duration-200">
+                      Name of financial institution
+                    </span>
+                  </div>
                   <input
                     type="text"
                     required
@@ -261,31 +271,41 @@ export function BankLinking({ onRefreshHistory }: BankLinkingProps) {
                   />
                 </div>
 
-                <div className="space-y-1">
-                  <label className="block text-[10px] font-medium text-gray-500 uppercase tracking-wider">
-                    Account Number
-                  </label>
+                <div className="space-y-1 group relative">
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="flex items-center gap-1 block text-[10px] font-medium text-gray-500 uppercase tracking-wider">
+                      Account Number <HelpCircle className="w-3 h-3 text-gray-500 cursor-help" />
+                    </label>
+                    <span className="text-[8px] text-cyan-500/80 opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 transition-opacity duration-200">
+                      Standard ACH/IBAN account identifier
+                    </span>
+                  </div>
                   <input
                     type="password"
                     required
                     value={accountNum}
                     onChange={(e) => setAccountNum(e.target.value)}
                     className="w-full bg-gray-950/50 border border-gray-800/60 rounded-xl px-3.5 py-2 text-xs text-gray-300 focus:outline-none focus:ring-1 focus:ring-cyan-500/40 font-mono"
-                    placeholder="Direct ACH account number"
+                    placeholder="e.g. 1234567890 (Direct ACH)"
                   />
                 </div>
 
-                <div className="space-y-1">
-                  <label className="block text-[10px] font-medium text-gray-500 uppercase tracking-wider">
-                    Routing Number
-                  </label>
+                <div className="space-y-1 group relative">
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="flex items-center gap-1 block text-[10px] font-medium text-gray-500 uppercase tracking-wider">
+                      Routing Number <HelpCircle className="w-3 h-3 text-gray-500 cursor-help" />
+                    </label>
+                    <span className="text-[8px] text-cyan-500/80 opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 transition-opacity duration-200">
+                      9-digit transit/routing transit code
+                    </span>
+                  </div>
                   <input
                     type="text"
                     required
                     value={routingNum}
                     onChange={(e) => setRoutingNum(e.target.value)}
                     className="w-full bg-gray-950/50 border border-gray-800/60 rounded-xl px-3.5 py-2 text-xs text-gray-300 focus:outline-none focus:ring-1 focus:ring-cyan-500/40 font-mono"
-                    placeholder="9-digit routing number"
+                    placeholder="e.g. 021000021"
                   />
                 </div>
               </div>
@@ -382,8 +402,24 @@ export function BankLinking({ onRefreshHistory }: BankLinkingProps) {
           Loading linked bank accounts...
         </div>
       ) : bankAccounts.length === 0 ? (
-        <div className="py-8 text-center text-xs text-gray-600">
-          No bank destinations configured. Configure USD off-ramping options above.
+        <div className="flex flex-col items-center justify-center py-10 px-4 gap-3.5 border border-dashed border-gray-850 rounded-2xl bg-gray-950/20 text-center animate-fade-in">
+          <div className="w-10 h-10 rounded-full bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center text-cyan-400">
+            <Building className="w-5 h-5" />
+          </div>
+          <div>
+            <p className="text-xs text-gray-300 font-semibold">No Bank Destinations Active</p>
+            <p className="text-[10px] text-gray-500 mt-1 leading-relaxed max-w-[320px] mx-auto font-sans">
+              To off-ramp escrow settlements automatically into USD fiat, link a corporate bank account destination and verify administrative approvals.
+            </p>
+          </div>
+          {!showWizard && (
+            <button
+              onClick={() => setShowWizard(true)}
+              className="text-[10px] font-semibold bg-cyan-950/40 hover:bg-cyan-950/60 border border-cyan-800/30 hover:border-cyan-700/50 text-cyan-400 px-3 py-1.5 rounded-xl transition-all cursor-pointer"
+            >
+              Link Your First Bank
+            </button>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

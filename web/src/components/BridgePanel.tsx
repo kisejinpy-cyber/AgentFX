@@ -119,18 +119,24 @@ export function BridgePanel() {
       {/* Network Direction Selector */}
       <div className="bg-gray-950/40 border border-gray-800/40 rounded-2xl p-4">
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-0">
-          <div className="flex-1 text-center w-full">
-            <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-1">Source Chain</p>
+          <div className="flex-1 text-center w-full group relative">
+            <div className="flex items-center justify-center gap-1.5 mb-1.5">
+              <p className="text-[10px] text-gray-500 uppercase tracking-wider">Source Chain</p>
+              <HelpCircle className="w-3.5 h-3.5 text-gray-500 hover:text-cyan-400 cursor-help transition-colors" />
+            </div>
             <select
               value={sourceChain}
               onChange={(e) => setSourceChain(e.target.value as any)}
               disabled={!isIdle}
-              className="bg-gray-900 border border-gray-800 rounded-lg px-2.5 py-1.5 text-xs text-gray-200 font-medium focus:outline-none focus:ring-1 focus:ring-cyan-500/40 w-full sm:w-auto"
+              className="bg-gray-900 border border-gray-800 rounded-lg px-2.5 py-1.5 text-xs text-gray-200 font-medium focus:outline-none focus:ring-1 focus:ring-cyan-500/40 w-full sm:w-auto cursor-pointer"
             >
               <option value="ethereum-sepolia">Ethereum Sepolia</option>
               <option value="base-sepolia">Base Sepolia</option>
               <option value="arbitrum-sepolia">Arbitrum Sepolia</option>
             </select>
+            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1 hidden group-hover:block bg-gray-950/95 border border-gray-850 rounded-lg p-2 text-[9px] text-gray-400 font-normal leading-normal shadow-xl z-50 pointer-events-none w-48 text-center">
+              The testnet blockchain where your source USDC is stored.
+            </div>
           </div>
           
           <div className="w-8 h-8 rounded-full bg-cyan-500/10 border border-cyan-500/20 flex items-center justify-center my-1 sm:my-0 sm:mx-4 shrink-0 rotate-90 sm:rotate-0">
@@ -147,9 +153,12 @@ export function BridgePanel() {
       </div>
 
       {/* Amount Input */}
-      <div className="space-y-2">
+      <div className="space-y-2 group relative">
         <div className="flex justify-between items-center text-xs">
-          <label className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">Amount to Bridge</label>
+          <div className="flex items-center gap-1.5">
+            <label className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">Amount to Bridge</label>
+            <HelpCircle className="w-3.5 h-3.5 text-gray-500 hover:text-cyan-400 cursor-help transition-colors" />
+          </div>
           <div className="flex gap-2">
             <span className="text-gray-500">Source Bal:</span>
             <span className="font-mono font-medium text-gray-300">${parseFloat(sepoliaBalance).toFixed(2)} USDC</span>
@@ -168,7 +177,7 @@ export function BridgePanel() {
             disabled={!isIdle}
             className={`w-full bg-[var(--bg-input)] border rounded-xl px-4 py-3 text-lg font-mono focus:outline-none focus:ring-2 transition-all placeholder-gray-700
               ${hasInsufficient ? 'border-red-500/60 focus:ring-red-500/40' : 'border-gray-800/60 focus:ring-cyan-500/40'}`}
-            placeholder="0.00"
+            placeholder="0.00 (e.g. 50.00)"
           />
           <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5">
             <button
@@ -180,6 +189,12 @@ export function BridgePanel() {
             </button>
             <span className="text-xs font-bold text-cyan-500 bg-cyan-950/40 px-2 py-0.5 rounded">USDC</span>
           </div>
+        </div>
+        <div className="mt-1 flex justify-between items-center text-[9px] text-gray-500">
+          <span>Decimals: 2 | Zero slippage mint-burn bridge</span>
+          <span className="text-cyan-500/80 opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 transition-opacity duration-200">
+            Specify the amount of Sepolia USDC to burn and mint on Arc
+          </span>
         </div>
         {hasInsufficient && (
           <p className="text-xs text-red-400 mt-1 flex items-center gap-1">

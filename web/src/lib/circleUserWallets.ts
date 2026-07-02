@@ -124,13 +124,16 @@ export async function executeUserTransaction(
 /**
  * Faucet funding utility for developer testing.
  */
-async function autoFundGasAndUSDC(recipientAddress: string) {
+export async function autoFundGasAndUSDC(recipientAddress: string, force = false): Promise<{ gasTxHash?: string; usdcTxHash?: string }> {
   try {
     const publicClient = createPublicClient({ chain: ARC_TESTNET, transport: http() });
     const gasBalance = await publicClient.getBalance({ address: recipientAddress as `0x${string}` });
 
-    // Fund with gas (1.0 USDC) and USDC tokens (100 USDC) if balance is low
-    if (gasBalance < parseEther('0.5')) {
+    let gasTxHash: `0x${string}` | undefined;
+    let usdcTxHash: `0x${string}` | undefined;
+
+    // Fund with gas (1.0 USDC) and USDC tokens (100 USDC) if balance is low or force is true
+    if (force || gasBalance < parseEther('0.5')) {
       const rawKey = process.env.PRIVATE_KEY || process.env.AGENT_PRIVATE_KEY;
       if (rawKey) {
         const faucetKey = (rawKey.startsWith('0x') ? rawKey : `0x${rawKey}`) as `0x${string}`;
@@ -138,23 +141,25 @@ async function autoFundGasAndUSDC(recipientAddress: string) {
         const faucetWallet = createWalletClient({ account: faucetAccount, chain: ARC_TESTNET, transport: http() });
 
         console.log(`🎁 [Gas Station Faucet] Refueling gas for recipient: ${recipientAddress}`);
-        const hash = await faucetWallet.sendTransaction({
+        gasTxHash = await faucetWallet.sendTransaction({
           to: recipientAddress as `0x${string}`,
           value: parseEther('1.0'),
         });
-        await publicClient.waitForTransactionReceipt({ hash });
+        await publicClient.waitForTransactionReceipt({ hash: gasTxHash });
 
         console.log(`🎁 [Gas Station Faucet] Transferring 100 USDC tokens to: ${recipientAddress}`);
-        const usdcHash = await faucetWallet.writeContract({
+        usdcTxHash = await faucetWallet.writeContract({
           address: USDC_ADDRESS,
           abi: USDC_ABI,
           functionName: 'transfer',
-          args: [recipientAddress, BigInt(100000000)], // 100 USDC (6 decimals)
+          args: [recipientAddress as `0x${string}`, BigInt(100000000)], // 100 USDC (6 decimals)
         });
-        await publicClient.waitForTransactionReceipt({ hash: usdcHash });
+        await publicClient.waitForTransactionReceipt({ hash: usdcTxHash });
       }
     }
-  } catch (err) {
+    return { gasTxHash, usdcTxHash };
+  } catch (err: any) {
     console.warn(`[Auto-Fund] Faucet refueling failed for ${recipientAddress}:`, err);
+    throw err;
   }
 }

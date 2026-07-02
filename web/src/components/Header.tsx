@@ -2,9 +2,10 @@
 
 import { useAccount, useConnect, useDisconnect, useBalance, useReadContract } from 'wagmi';
 import { formatUnits } from 'viem';
-import { Shield, LogOut, Wallet, ChevronDown, ExternalLink, Copy, Check, Menu, X } from 'lucide-react';
+import { Shield, LogOut, Wallet, ChevronDown, ExternalLink, Copy, Check, Menu, X, Droplets, Loader2 } from 'lucide-react';
 import { useState, useCallback } from 'react';
 import { usePathname } from 'next/navigation';
+import { useToast } from '@/components/ui/Toast';
 import { TransitionLink as Link } from '@/components/ui/motion/TransitionLink';
 import {
   USDC_ADDRESS,
@@ -25,6 +26,41 @@ export function Header() {
   const [showDropdown, setShowDropdown] = useState(false);
   const [copied, setCopied] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [isFunding, setIsFunding] = useState(false);
+  const { addToast, updateToast } = useToast();
+
+  const handleFaucetRequest = async () => {
+    if (!address) return;
+    setIsFunding(true);
+    const toastId = addToast({
+      type: 'loading',
+      title: 'Requesting Faucet Refill',
+      message: 'Minting testnet USDC and refueling gas...',
+    });
+    try {
+      const res = await fetch('/api/payouts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'requestFaucet', userAddress: address }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Faucet request failed');
+      
+      updateToast(toastId, {
+        type: 'success',
+        title: 'Faucet Refueled',
+        message: 'Successfully received 100 USDC and 1.0 native gas!',
+      });
+    } catch (err: any) {
+      updateToast(toastId, {
+        type: 'error',
+        title: 'Faucet Refuel Failed',
+        message: err.message || 'Unknown faucet error',
+      });
+    } finally {
+      setIsFunding(false);
+    }
+  };
 
   // Read USDC ERC-20 balance
   const { data: usdcBalance } = useReadContract({
@@ -229,6 +265,24 @@ export function Header() {
                         <span className="text-sm font-mono font-medium text-gray-200">{formattedNativeBalance}</span>
                       </div>
                     </div>
+                    <button
+                      onClick={handleFaucetRequest}
+                      disabled={isFunding}
+                      className="mt-3 w-full flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-[10px] font-semibold tracking-wide uppercase transition-all duration-200
+                        bg-emerald-500/10 hover:bg-emerald-500/25 border border-emerald-500/20 hover:border-emerald-500/40 text-emerald-400 disabled:opacity-40"
+                    >
+                      {isFunding ? (
+                        <>
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          Funding...
+                        </>
+                      ) : (
+                        <>
+                          <Droplets className="w-3 h-3" />
+                          Request Faucet
+                        </>
+                      )}
+                    </button>
                   </div>
                   {/* Actions */}
                   <div className="p-2">

@@ -5,14 +5,53 @@ import { useAccount, useReadContract } from 'wagmi';
 import { formatUnits } from 'viem';
 import { USDC_ADDRESS, USDC_DECIMALS, USDC_ABI } from '@/lib/constants';
 import { getUnifiedBalances, ChainBalance } from '@/lib/appKitHelper';
-import { Layers, ChevronDown, RefreshCw, AlertCircle, Link } from 'lucide-react';
+import { Layers, ChevronDown, RefreshCw, AlertCircle, Link, Droplets, Loader2 } from 'lucide-react';
+import { useToast } from '@/components/ui/Toast';
 
 export function UnifiedBalanceWidget() {
   const { address, isConnected } = useAccount();
   const [balances, setBalances] = useState<ChainBalance[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
+  const [isFunding, setIsFunding] = useState(false);
+  const { addToast, updateToast } = useToast();
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const handleFaucetRequest = async () => {
+    if (!address) return;
+    setIsFunding(true);
+    const toastId = addToast({
+      type: 'loading',
+      title: 'Refueling Account',
+      message: 'Requesting testnet USDC and native gas from Arc faucet...',
+    });
+    try {
+      const res = await fetch('/api/payouts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'requestFaucet', userAddress: address }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Faucet request failed');
+      
+      updateToast(toastId, {
+        type: 'success',
+        title: 'Refueling Completed',
+        message: 'Received 100 USDC and 1.0 native gas. Updating balances!',
+      });
+      // Refetch balances immediately
+      refetchArc();
+      loadBalances(false);
+    } catch (err: any) {
+      updateToast(toastId, {
+        type: 'error',
+        title: 'Refueling Failed',
+        message: err.message || 'Unknown faucet error',
+      });
+    } finally {
+      setIsFunding(false);
+    }
+  };
 
   // Read real Arc USDC balance
   const { data: arcUsdcBalance, refetch: refetchArc } = useReadContract({
@@ -122,6 +161,25 @@ export function UnifiedBalanceWidget() {
               </div>
             ))}
           </div>
+
+          <button
+            onClick={handleFaucetRequest}
+            disabled={isFunding}
+            className="w-full flex items-center justify-center gap-2 py-2 px-4 rounded-xl text-xs font-semibold uppercase transition-all duration-300
+              bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 hover:border-emerald-500 text-emerald-400 disabled:opacity-40 shadow-[0_0_15px_rgba(16,185,129,0.05)] cursor-pointer"
+          >
+            {isFunding ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Refueling Faucet...
+              </>
+            ) : (
+              <>
+                <Droplets className="w-4 h-4" />
+                Request Testnet USDC Faucet
+              </>
+            )}
+          </button>
 
           <div className="pt-2 border-t border-gray-800/40 flex items-start gap-2 bg-cyan-950/5 p-2 rounded-lg border border-cyan-900/20">
             <AlertCircle className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
