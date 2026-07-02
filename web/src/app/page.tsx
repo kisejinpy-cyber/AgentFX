@@ -110,8 +110,9 @@ export default function LandingPage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      {/* Background glow effects */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-[600px] bg-gradient-to-b from-cyan-500/5 to-transparent blur-3xl pointer-events-none -z-10" />
+      {/* Background glow & interactive grid mesh */}
+      <div className="absolute top-0 left-0 w-full h-[800px] spotlight-grid pointer-events-none -z-10" />
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-[600px] bg-gradient-to-b from-cyan-500/10 via-blue-500/5 to-transparent blur-3xl pointer-events-none -z-10" />
 
       {/* Navigation Header */}
       <div className="max-w-7xl w-full mx-auto px-4 sm:px-6">
@@ -151,7 +152,7 @@ export default function LandingPage() {
         </div>
 
         {/* Live Interface Preview Mockup */}
-        <div className="pt-10 max-w-5xl mx-auto">
+        <div className="pt-10 max-w-5xl mx-auto animate-float">
           <div className="bg-gray-950 border border-gray-800/60 rounded-2xl p-2 shadow-2xl relative overflow-hidden group">
             <div className="absolute inset-0 bg-gradient-to-tr from-cyan-500/10 via-transparent to-blue-500/5 opacity-80" />
             <div className="bg-gray-900/50 border border-gray-800/30 rounded-xl p-5 sm:p-8 space-y-6 text-left relative z-10">
@@ -290,7 +291,7 @@ export default function LandingPage() {
               desc: "Automatic sanctions risk scoring matching OFAC and Circle AML watchlists in real-time."
             }
           ].map(({ icon: Icon, title, desc }, idx) => (
-            <div key={idx} className="bg-gray-900/20 border border-gray-800/40 hover:border-cyan-500/20 rounded-2xl p-6 transition-all duration-300 hover:-translate-y-1">
+            <div key={idx} className="tactile-card bg-gray-900/20 border border-gray-800/40 rounded-2xl p-6">
               <div className="w-10 h-10 bg-cyan-500/10 rounded-lg flex items-center justify-center mb-4">
                 <Icon className="w-5 h-5 text-cyan-400" />
               </div>
