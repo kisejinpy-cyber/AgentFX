@@ -120,6 +120,33 @@ export function EscrowForm({ agentAddress, setAgentAddress }: EscrowFormProps) {
     setMilestones(next);
   };
 
+  const handleEvenSplit = () => {
+    if (milestones.length === 0) return;
+    const budgetToSplit = totalAmount > 0 ? totalAmount : (usdcBalance ? Number(formatUnits(usdcBalance as bigint, USDC_DECIMALS)) : 100);
+    const count = milestones.length;
+    const splitAmount = (budgetToSplit / count).toFixed(2);
+    
+    const updated = milestones.map((m) => ({
+      ...m,
+      amount: splitAmount
+    }));
+    setMilestones(updated);
+  };
+
+  const handleMaxBalance = () => {
+    if (!usdcBalance) return;
+    const maxVal = Number(formatUnits(usdcBalance as bigint, USDC_DECIMALS));
+    const safeMax = Math.max(0, maxVal - 0.5);
+    const count = milestones.length;
+    const splitAmount = (safeMax / count).toFixed(2);
+
+    const updated = milestones.map((m) => ({
+      ...m,
+      amount: splitAmount
+    }));
+    setMilestones(updated);
+  };
+
   const runUnifiedFunding = useCallback(async () => {
     if (!address) return;
     setTxStep('creating');
@@ -746,29 +773,39 @@ export function EscrowForm({ agentAddress, setAgentAddress }: EscrowFormProps) {
 
       <div className="space-y-4">
         {/* Job Title / PO Reference */}
-        <div>
-          <label className="block text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1.5">
-            Job Title / PO Reference
-          </label>
+        <div className="group relative">
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="block text-[10px] font-medium text-gray-500 uppercase tracking-wider">
+              Job Title / PO Reference
+            </label>
+            <span className="text-[9px] text-cyan-500/80 opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 transition-opacity duration-200">
+              Descriptive title or corporate PO number (min 3 chars)
+            </span>
+          </div>
           <input
             type="text"
             value={jobDescription}
             onChange={(e) => setJobDescription(e.target.value)}
             className="w-full bg-[var(--bg-input)] border border-gray-800/60 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500/40 transition-all duration-200 placeholder-gray-700"
-            placeholder="e.g. Web Development or PO-9942"
+            placeholder="e.g. B2B Electronics Delivery or PO-2026-88"
           />
         </div>
 
         {/* Deliverables / Milestones */}
-        <div>
+        <div className="group relative">
           <div className="flex items-center justify-between mb-1.5">
-            <label className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">
-              Deliverables & Budget Split
-            </label>
+            <div className="flex items-center gap-2">
+              <label className="text-[10px] font-medium text-gray-500 uppercase tracking-wider">
+                Deliverables & Budget Split
+              </label>
+              <span className="text-[9px] text-cyan-500/80 opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 transition-opacity duration-200">
+                Allocate USDC budget per deliverable
+              </span>
+            </div>
             <button
               type="button"
               onClick={addMilestone}
-              className="text-[10px] text-cyan-500 hover:text-cyan-400 transition-colors font-medium flex items-center gap-1"
+              className="text-[10px] text-cyan-500 hover:text-cyan-400 transition-colors font-medium flex items-center gap-1 cursor-pointer"
             >
               <Plus className="w-3 h-3" /> Add Deliverable
             </button>
@@ -825,6 +862,24 @@ export function EscrowForm({ agentAddress, setAgentAddress }: EscrowFormProps) {
             )}
           </div>
         </div>
+        <div className="flex gap-2 justify-end">
+          <button
+            type="button"
+            onClick={handleEvenSplit}
+            className="text-[9px] font-semibold bg-gray-800/40 hover:bg-gray-800/70 border border-gray-750/30 hover:border-gray-650/50 text-gray-300 px-2 py-1 rounded transition-all cursor-pointer"
+          >
+            Even Split
+          </button>
+          {isConnected && (
+            <button
+              type="button"
+              onClick={handleMaxBalance}
+              className="text-[9px] font-semibold bg-cyan-950/20 hover:bg-cyan-950/40 border border-cyan-900/30 hover:border-cyan-700/50 text-cyan-400 px-2 py-1 rounded transition-all cursor-pointer"
+            >
+              Use Max Balance
+            </button>
+          )}
+        </div>
         {hasInsufficientBalance && (
           <p className="text-xs text-red-400 flex items-center gap-1">
             <AlertTriangle className="w-3 h-3" />
@@ -833,10 +888,15 @@ export function EscrowForm({ agentAddress, setAgentAddress }: EscrowFormProps) {
         )}
 
         {/* Seller Address */}
-        <div>
-          <label className="block text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1.5">
-            Seller Address
-          </label>
+        <div className="group relative">
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="block text-[10px] font-medium text-gray-500 uppercase tracking-wider">
+              Seller Address
+            </label>
+            <span className="text-[9px] text-cyan-500/80 opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 transition-opacity duration-200">
+              Arc/EVM address of recipient (e.g. 0x71C...891E)
+            </span>
+          </div>
           <input
             type="text"
             value={sellerAddress}
@@ -846,7 +906,7 @@ export function EscrowForm({ agentAddress, setAgentAddress }: EscrowFormProps) {
               focus:outline-none focus:ring-2 transition-all duration-200 placeholder-gray-700
               ${sellerAddress && !isSellerValid ? 'border-red-500/60 focus:ring-red-500/40' : 'border-gray-800/60 focus:ring-cyan-500/40'}
             `}
-            placeholder="0x..."
+            placeholder="e.g. 0x1087E71CD83101adF154d8215522EadA51Bf891E"
           />
           {sellerAddress && !isSellerValid && (
             <p className="text-xs text-red-400 mt-1 flex items-center gap-1">
@@ -857,11 +917,16 @@ export function EscrowForm({ agentAddress, setAgentAddress }: EscrowFormProps) {
         </div>
 
         {/* Settlement Currency Select */}
-        <div>
-          <label className="flex items-center gap-1.5 text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1.5">
-            Settlement Currency
-            <span className="text-cyan-500/70 normal-case tracking-normal">(StableFX Cross-Border Swap)</span>
-          </label>
+        <div className="group relative">
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="flex items-center gap-1.5 text-[10px] font-medium text-gray-500 uppercase tracking-wider">
+              Settlement Currency
+              <span className="text-cyan-500/70 normal-case tracking-normal">(StableFX Cross-Border Swap)</span>
+            </label>
+            <span className="text-[9px] text-cyan-500/80 opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 transition-opacity duration-200">
+              Select output currency; EURC uses automated swap on-chain
+            </span>
+          </div>
           <select
             value={settlementCurrency}
             onChange={(e) => setSettlementCurrency(e.target.value as 'USDC' | 'EURC')}
@@ -923,10 +988,15 @@ export function EscrowForm({ agentAddress, setAgentAddress }: EscrowFormProps) {
                 </div>
               ))}
             </div>
-            <div className="pt-2">
-              <label className="block text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1.5">
-                Human Fallback Arbiter
-              </label>
+            <div className="pt-2 group relative">
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-[10px] font-medium text-gray-500 uppercase tracking-wider">
+                  Human Fallback Arbiter
+                </label>
+                <span className="text-[9px] text-purple-400 opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 transition-opacity duration-200">
+                  Address to break ties if agent consensus deadlocks
+                </span>
+              </div>
               <input
                 type="text"
                 value={humanArbiter}
@@ -936,7 +1006,7 @@ export function EscrowForm({ agentAddress, setAgentAddress }: EscrowFormProps) {
                   focus:outline-none focus:ring-2 transition-all duration-200 placeholder-gray-700
                   ${humanArbiter && !isArbiterValid ? 'border-red-500/60 focus:ring-red-500/40' : 'border-gray-800/60 focus:ring-purple-500/40'}
                 `}
-                placeholder="0x..."
+                placeholder="e.g. 0x1087E71CD83101adF154d8215522EadA51Bf891E"
               />
               {humanArbiter && !isArbiterValid && (
                 <p className="text-xs text-red-400 mt-1 flex items-center gap-1">
@@ -949,11 +1019,16 @@ export function EscrowForm({ agentAddress, setAgentAddress }: EscrowFormProps) {
         ) : (
           <>
             {/* Agent Selection */}
-            <div>
-              <label className="flex items-center gap-1.5 text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1.5">
-                Select Verification AI Agent
-                <span className="text-cyan-500/70 normal-case tracking-normal">(ERC-8004 Registry)</span>
-              </label>
+            <div className="group relative">
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="flex items-center gap-1.5 text-[10px] font-medium text-gray-500 uppercase tracking-wider">
+                  Select Verification AI Agent
+                  <span className="text-cyan-500/70 normal-case tracking-normal">(ERC-8004 Registry)</span>
+                </label>
+                <span className="text-[9px] text-cyan-500/80 opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 transition-opacity duration-200">
+                  Oracle agent that automatically evaluates deliverables
+                </span>
+              </div>
               <select
                 value={STATIC_AGENTS.some(a => a.address === agentAddress) ? agentAddress : agentAddress ? 'custom' : ''}
                 onChange={(e) => {
@@ -978,10 +1053,15 @@ export function EscrowForm({ agentAddress, setAgentAddress }: EscrowFormProps) {
 
             {/* Custom Agent Address Input */}
             {(!STATIC_AGENTS.some(a => a.address === agentAddress) || agentAddress === '') ? (
-              <div className="animate-fade-in">
-                <label className="block text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1.5">
-                  Custom AI Agent Address
-                </label>
+              <div className="animate-fade-in group relative">
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-[10px] font-medium text-gray-500 uppercase tracking-wider">
+                    Custom AI Agent Address
+                  </label>
+                  <span className="text-[9px] text-cyan-500/80 opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 transition-opacity duration-200">
+                    EVM contract address of custom ERC-8004 Agent
+                  </span>
+                </div>
                 <input
                   type="text"
                   value={agentAddress}
@@ -991,7 +1071,7 @@ export function EscrowForm({ agentAddress, setAgentAddress }: EscrowFormProps) {
                     focus:outline-none focus:ring-2 transition-all duration-200 placeholder-gray-700
                     ${agentAddress && !isAgentValid ? 'border-red-500/60 focus:ring-red-500/40' : 'border-gray-800/60 focus:ring-cyan-500/40'}
                   `}
-                  placeholder="0x..."
+                  placeholder="e.g. 0x1087E71CD83101adF154d8215522EadA51Bf891E"
                 />
                 {agentAddress && !isAgentValid && (
                   <p className="text-xs text-red-400 mt-1 flex items-center gap-1">
@@ -1005,11 +1085,16 @@ export function EscrowForm({ agentAddress, setAgentAddress }: EscrowFormProps) {
         )}
 
         {/* Source Funding Chain Selection */}
-        <div>
-          <label className="flex items-center gap-1.5 text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1.5">
-            Source Funding Chain
-            <span className="text-cyan-500/70 normal-case tracking-normal">(Circle App Kit)</span>
-          </label>
+        <div className="group relative">
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="flex items-center gap-1.5 text-[10px] font-medium text-gray-500 uppercase tracking-wider">
+              Source Funding Chain
+              <span className="text-cyan-500/70 normal-case tracking-normal">(Circle App Kit)</span>
+            </label>
+            <span className="text-[9px] text-cyan-500/80 opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 transition-opacity duration-200">
+              Chain where you pay from; swaps via App Kit if cross-chain
+            </span>
+          </div>
           <select
             value={sourceChain}
             onChange={(e) => setSourceChain(e.target.value as any)}

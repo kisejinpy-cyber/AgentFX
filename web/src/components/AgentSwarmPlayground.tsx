@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useAccount, useWriteContract, useSignTypedData } from 'wagmi';
-import { Bot, Zap, Coins, ChevronRight, CheckCircle, Play, ShieldAlert, Cpu, Sparkles, Plus, Loader2, Award, Terminal, FileText, ExternalLink, Brain } from 'lucide-react';
+import { Bot, Zap, Coins, ChevronRight, CheckCircle, Play, ShieldAlert, Cpu, Sparkles, Plus, Loader2, Award, Terminal, FileText, ExternalLink, Brain, HelpCircle } from 'lucide-react';
 import { AGENT_REGISTRY_ADDRESS, AGENT_REGISTRY_ABI, explorerTxUrl } from '@/lib/constants';
 import { useToast } from '@/components/ui/Toast';
 
@@ -299,15 +299,20 @@ export function AgentSwarmPlayground() {
         </div>
 
         {/* Task input row */}
-        <div className="flex flex-col md:flex-row gap-3 mb-6">
-          <input
-            type="text"
-            value={task}
-            disabled={executing}
-            onChange={(e) => setTask(e.target.value)}
-            placeholder="Describe the task for the Agent Swarm..."
-            className="flex-1 bg-[var(--bg-input)] border border-gray-800/60 rounded-xl px-4 py-2.5 text-xs text-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500/40 transition-all placeholder-gray-700 disabled:opacity-50"
-          />
+        <div className="flex flex-col md:flex-row gap-3 mb-6 group relative">
+          <div className="flex-1 relative">
+            <input
+              type="text"
+              value={task}
+              disabled={executing}
+              onChange={(e) => setTask(e.target.value)}
+              placeholder="e.g. Verify shipping manifest for PO-9942 and audit compliance"
+              className="w-full bg-[var(--bg-input)] border border-gray-800/60 rounded-xl pl-4 pr-10 py-2.5 text-xs text-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500/40 transition-all placeholder-gray-700 disabled:opacity-50"
+            />
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center">
+              <HelpCircle className="w-3.5 h-3.5 text-gray-500 hover:text-purple-400 cursor-help transition-colors" />
+            </div>
+          </div>
           <button
             onClick={handleRunSwarm}
             disabled={executing || !task}
@@ -316,6 +321,9 @@ export function AgentSwarmPlayground() {
             {executing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Play className="w-3.5 h-3.5" />}
             Dispatch Swarm
           </button>
+          <div className="absolute top-full left-0 mt-1 hidden group-hover:block bg-gray-950/95 border border-gray-850 rounded-lg p-2 text-[9px] text-gray-400 font-normal leading-normal shadow-xl z-50 pointer-events-none w-72 text-center">
+            Write a detailed prompt describing what logistics, invoices, or legal conditions the autonomous agent fleet should verify.
+          </div>
         </div>
 
         {/* Swarm Interactive Progress Grid */}
@@ -334,15 +342,20 @@ export function AgentSwarmPlayground() {
                 
                 return (
                   <div key={idx} className="flex gap-4 relative">
-                    <div className={`w-6 h-6 rounded-full border flex items-center justify-center text-[10px] shrink-0 font-bold transition-all duration-300 z-10
-                      ${isCompleted ? 'bg-emerald-500 border-transparent text-gray-950' : 
-                        isCurrent ? 'bg-cyan-500/20 border-cyan-500 text-cyan-400 animate-pulse' : 
-                        'bg-gray-950 border-gray-800 text-gray-600'}`}
-                    >
-                      {isCompleted ? '✓' : stepNum}
+                    <div className="relative shrink-0">
+                      {isCurrent && (
+                        <div className="absolute inset-0 rounded-full bg-cyan-400/25 animate-pulse-glow-ring -z-10" />
+                      )}
+                      <div className={`w-6 h-6 rounded-full border flex items-center justify-center text-[10px] font-bold transition-all duration-300 z-10
+                        ${isCompleted ? 'bg-emerald-500 border-transparent text-gray-950 shadow-[0_0_10px_rgba(16,185,129,0.15)]' : 
+                          isCurrent ? 'bg-cyan-500/20 border-cyan-400 text-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.2)]' : 
+                          'bg-gray-950 border-gray-800 text-gray-600'}`}
+                      >
+                        {isCompleted ? '✓' : isCurrent ? <Loader2 className="w-3 h-3 animate-spin text-cyan-400" /> : stepNum}
+                      </div>
                     </div>
                     <div className="min-w-0 flex-1">
-                      <span className={`text-[11px] font-semibold block transition-colors duration-300 ${isCurrent ? 'text-cyan-400' : isCompleted ? 'text-gray-300' : 'text-gray-600'}`}>
+                      <span className={`text-[11px] font-semibold block transition-colors duration-300 ${isCurrent ? 'text-cyan-400 font-bold' : isCompleted ? 'text-gray-300' : 'text-gray-600'}`}>
                         {step.label}
                       </span>
                       <p className="text-[10px] text-gray-500 mt-0.5 truncate leading-relaxed">
@@ -397,41 +410,53 @@ export function AgentSwarmPlayground() {
             </h4>
 
             {logs.length === 0 ? (
-              <div className="flex-1 flex flex-col items-center justify-center text-center p-6 gap-3">
-                <Bot className={`w-8 h-8 text-gray-700 ${executing ? 'animate-bounce text-purple-500/50' : ''}`} />
-                <p className="text-[11px] text-gray-500 font-sans leading-relaxed">
-                  {executing ? 'Swarm Agents negotiating consensus and fetching logistics APIs...' : 'Consoles are idle. Click "Dispatch Swarm" to audit compliance.'}
-                </p>
-              </div>
+              executing ? (
+                <div className="flex-1 space-y-3.5 py-2">
+                  <div className="bg-gray-900/40 border border-gray-850/50 rounded-xl p-4 animate-shimmer h-[70px] relative overflow-hidden" />
+                  <div className="bg-gray-900/40 border border-gray-850/50 rounded-xl p-4 animate-shimmer h-[70px] opacity-60 relative overflow-hidden" />
+                  <div className="bg-gray-900/40 border border-gray-850/50 rounded-xl p-4 animate-shimmer h-[70px] opacity-30 relative overflow-hidden" />
+                  <div className="flex items-center gap-2 text-[10px] text-gray-500 font-mono mt-2">
+                    <span className="w-1.5 h-3 bg-purple-400 animate-ping inline-block" />
+                    <span>Agent fleet processing logic stream...</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex-1 flex flex-col items-center justify-center text-center p-6 gap-3">
+                  <Bot className="w-8 h-8 text-gray-700" />
+                  <p className="text-[11px] text-gray-500 font-sans leading-relaxed">
+                    Consoles are idle. Click "Dispatch Swarm" to audit compliance.
+                  </p>
+                </div>
+              )
             ) : (
-              <div className="space-y-4 flex-1 font-mono text-[11px]">
+              <div className="space-y-4 flex-1 font-mono text-[11px] max-h-[380px] overflow-y-auto pr-1">
                 {logs.slice(0, visibleLogCount).map((log, idx) => (
-                  <div key={idx} className="bg-gray-950 border border-gray-850 rounded-lg p-3 space-y-1 hover:border-purple-500/20 transition-all duration-500 animate-fade-in">
-                    <div className="flex justify-between items-center">
-                      <span className="text-[10px] font-bold text-purple-400 flex items-center gap-1">
-                        <Cpu className="w-2.5 h-2.5 text-purple-400" />
+                  <div key={idx} className="bg-gray-950/80 border border-gray-850 rounded-lg p-3 space-y-1.5 hover:border-purple-500/30 transition-all duration-300 animate-fade-in shadow-inner">
+                    <div className="flex justify-between items-center border-b border-gray-900 pb-1">
+                      <span className="text-[10px] font-bold text-purple-400 flex items-center gap-1.5 uppercase tracking-wide">
+                        <Cpu className="w-3 h-3 text-purple-500" />
                         {log.agent}
                       </span>
                       <div className="flex items-center gap-1.5">
                         {aiPowered && (
-                          <span className="text-[8px] text-indigo-400 bg-indigo-950/40 border border-indigo-900/30 px-1 py-0.5 rounded">
-                            AI
+                          <span className="text-[8px] font-bold text-indigo-400 bg-indigo-950/40 border border-indigo-900/30 px-1 py-0.2 rounded font-sans">
+                            DEEPSEEK
                           </span>
                         )}
-                        <span className="text-[9px] text-emerald-400 bg-emerald-950/30 border border-emerald-900/30 px-1 py-0.5 rounded">
-                          RESOLVED
+                        <span className="text-[8px] font-bold text-emerald-400 bg-emerald-950/30 border border-emerald-900/30 px-1 py-0.2 rounded font-sans uppercase">
+                          audit_pass
                         </span>
                       </div>
                     </div>
-                    <p className="text-gray-400 leading-normal font-sans text-xs">
+                    <p className="text-gray-400 leading-relaxed font-sans text-[11px]">
                       {log.text}
                     </p>
                   </div>
                 ))}
                 {visibleLogCount < logs.length && (
-                  <div className="flex items-center gap-2 py-2 text-[10px] text-gray-600">
-                    <Loader2 className="w-3 h-3 animate-spin text-purple-500" />
-                    Agent reasoning in progress...
+                  <div className="flex items-center gap-2 py-3 text-[10px] text-gray-500 font-mono">
+                    <span className="w-1.5 h-3 bg-cyan-400 animate-ping inline-block" />
+                    <span>Agent fleet processing logic stream...</span>
                   </div>
                 )}
               </div>
@@ -455,10 +480,15 @@ export function AgentSwarmPlayground() {
         </div>
 
         <form onSubmit={handleRegisterAgent} className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-3">
-          <div>
-            <label className="block text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1.5">
-              Agent Name
-            </label>
+          <div className="group relative">
+            <div className="flex justify-between items-center mb-1.5">
+              <label className="flex items-center gap-1 text-[10px] font-medium text-gray-500 uppercase tracking-wider">
+                Agent Name <HelpCircle className="w-3 h-3 text-gray-500 cursor-help" />
+              </label>
+              <span className="text-[9px] text-cyan-500/80 opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 transition-opacity duration-200">
+                The primary directory label of your AI node
+              </span>
+            </div>
             <input
               type="text"
               required
@@ -469,10 +499,15 @@ export function AgentSwarmPlayground() {
             />
           </div>
 
-          <div>
-            <label className="block text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1.5">
-              Capabilities Detail
-            </label>
+          <div className="group relative">
+            <div className="flex justify-between items-center mb-1.5">
+              <label className="flex items-center gap-1 text-[10px] font-medium text-gray-500 uppercase tracking-wider">
+                Capabilities Detail <HelpCircle className="w-3 h-3 text-gray-500 cursor-help" />
+              </label>
+              <span className="text-[9px] text-cyan-500/80 opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 transition-opacity duration-200">
+                Explain tasks this agent specializes in
+              </span>
+            </div>
             <input
               type="text"
               required
@@ -483,29 +518,39 @@ export function AgentSwarmPlayground() {
             />
           </div>
 
-          <div>
-            <label className="block text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1.5">
-              Metadata URI
-            </label>
+          <div className="group relative">
+            <div className="flex justify-between items-center mb-1.5">
+              <label className="flex items-center gap-1 text-[10px] font-medium text-gray-500 uppercase tracking-wider">
+                Metadata URI <HelpCircle className="w-3 h-3 text-gray-500 cursor-help" />
+              </label>
+              <span className="text-[9px] text-cyan-500/80 opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 transition-opacity duration-200">
+                URL link to schema profile JSON metadata
+              </span>
+            </div>
             <input
               type="text"
               value={newMetadataUri}
               onChange={(e) => setNewMetadataUri(e.target.value)}
-              placeholder="https://ipfs.io/ipfs/Qm..."
+              placeholder="e.g. https://ipfs.io/ipfs/Qm..."
               className="w-full bg-[var(--bg-input)] border border-gray-800/60 rounded-xl px-4 py-2.5 text-xs text-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500/40 transition-all placeholder-gray-700"
             />
           </div>
 
-          <div>
-            <label className="block text-[10px] font-medium text-gray-500 uppercase tracking-wider mb-1.5">
-              Agent Wallet Address (Circle Wallet EOA/SCA)
-            </label>
+          <div className="group relative">
+            <div className="flex justify-between items-center mb-1.5">
+              <label className="flex items-center gap-1 text-[10px] font-medium text-gray-500 uppercase tracking-wider">
+                Agent Wallet Address <HelpCircle className="w-3 h-3 text-gray-500 cursor-help" />
+              </label>
+              <span className="text-[9px] text-cyan-500/80 opacity-0 group-focus-within:opacity-100 group-hover:opacity-100 transition-opacity duration-200">
+                Circle programmable wallet or EOA address
+              </span>
+            </div>
             <input
               type="text"
               required
               value={newAgentAddress}
               onChange={(e) => setNewAgentAddress(e.target.value)}
-              placeholder="0x..."
+              placeholder="e.g. 0x1087E71CD83101adF154d8215522EadA51Bf891E"
               className="w-full bg-[var(--bg-input)] border border-gray-800/60 rounded-xl px-4 py-2.5 text-xs font-mono text-gray-300 focus:outline-none focus:ring-2 focus:ring-purple-500/40 transition-all placeholder-gray-700"
             />
           </div>

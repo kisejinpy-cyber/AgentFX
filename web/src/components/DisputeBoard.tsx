@@ -622,10 +622,19 @@ export function DisputeBoard() {
                 ))}
               </div>
             ) : disputedJobs.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-16 gap-3 border border-dashed border-gray-800/60 rounded-xl bg-gray-950/20">
-                <Inbox className="w-8 h-8 text-gray-700" />
-                <p className="text-xs text-gray-500 font-medium">All systems green</p>
-                <p className="text-[10px] text-gray-600">No active disputes registered</p>
+              <div className="flex flex-col items-center justify-center py-10 px-4 gap-3.5 border border-dashed border-gray-850 rounded-xl bg-gray-950/20 text-center animate-fade-in">
+                <Shield className="w-8 h-8 text-cyan-500/80 animate-pulse" />
+                <div>
+                  <p className="text-xs text-gray-300 font-semibold">Treasury in Sync — Zero Disputes</p>
+                  <p className="text-[10px] text-gray-500 mt-1 leading-relaxed max-w-[280px] mx-auto font-sans">
+                    No active escrow disputes detected. When a dispute is triggered by an owner, AI Consensus Nodes verify delivery reports using BFT protocols.
+                  </p>
+                </div>
+                <div className="bg-cyan-950/10 border border-cyan-900/20 rounded-lg p-2.5 max-w-xs mt-1">
+                  <p className="text-[9px] text-cyan-400 font-medium leading-relaxed text-left font-sans">
+                    💡 **Arbitration Flow**: If consensus fails, human arbiters or the DisputeDAO multi-signature committee resolves deadlocks with preset payouts.
+                  </p>
+                </div>
               </div>
             ) : (
               <div className="space-y-3.5 max-h-[400px] overflow-y-auto scrollbar-none">
