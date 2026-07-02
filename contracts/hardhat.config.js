@@ -1,5 +1,6 @@
 import { defineConfig } from "hardhat/config";
 import hardhatEthers from "@nomicfoundation/hardhat-ethers";
+import "@nomicfoundation/hardhat-mocha";
 import * as dotenv from "dotenv";
 
 dotenv.config();

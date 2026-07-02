@@ -12,9 +12,9 @@ export const USDC_DECIMALS = 6;
 export const EURC_ADDRESS = '0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a' as const;
 
 // Deployed AutoEscrow contract
-export const AUTO_ESCROW_ADDRESS = '0x581854b3fa015569b67A9AABa564c46b4EDCbDd0' as const;
+export const AUTO_ESCROW_ADDRESS = '0xA0512f195AF084438de76C20D8A267505F89A589' as const;
 export const TREASURY_VAULT_ADDRESS = '0xc84AA7bF6DdBB5A11d811230B45ca6a802d7BE12' as const;
-export const AGENT_REGISTRY_ADDRESS = '0xC3B49a82B853e77d8724ac404EA4eA9C59005f7e' as const;
+export const AGENT_REGISTRY_ADDRESS = '0xa9CA72A499a3b268eB2092Be7f4270d3695E73a0' as const;
 export const USYC_VAULT_ADDRESS = '0xe9185F0c5F296Ed1797AaE4238D26CCaBEadb86C' as const;
 
 // ─── Minimal USDC ABI (only functions we use) ───

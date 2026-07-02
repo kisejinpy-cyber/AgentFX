@@ -10,10 +10,12 @@ async function main() {
   const hookPath = path.resolve(process.cwd(), "contracts/IACPHook.sol");
   const escrowPath = path.resolve(process.cwd(), "contracts/AutoEscrowv3.sol");
   const registryPath = path.resolve(process.cwd(), "contracts/AgentRegistry.sol");
+  const stableFXPath = path.resolve(process.cwd(), "contracts/interfaces/IStableFX.sol");
 
   const hookSource = fs.readFileSync(hookPath, "utf8");
   const escrowSource = fs.readFileSync(escrowPath, "utf8");
   const registrySource = fs.readFileSync(registryPath, "utf8");
+  const stableFXSource = fs.readFileSync(stableFXPath, "utf8");
 
   const input = {
     language: "Solidity",
@@ -21,6 +23,7 @@ async function main() {
       "IACPHook.sol": { content: hookSource },
       "AutoEscrowv3.sol": { content: escrowSource },
       "AgentRegistry.sol": { content: registrySource },
+      "interfaces/IStableFX.sol": { content: stableFXSource },
     },
     settings: {
       viaIR: true,
