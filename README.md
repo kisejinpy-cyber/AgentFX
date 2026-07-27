@@ -357,5 +357,3 @@ Access services at:
 ## License & Attribution
 
 Distributed under the **MIT License**. See `LICENSE` for full terms.
-
-*Built for the **Stablecoins Commerce Stack Challenge** on **Arc Network**.*
